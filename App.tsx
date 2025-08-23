@@ -5,14 +5,14 @@
  * @format
  */
 
-
-import React, { useState, useEffect } from "react";
+import 'react-native-reanimated'
+import  { useState, useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import LoginScreen from "./screens/LoginScreen";
-import DrawerNavigator from "./navigation/DrawerNavigator";
+import LoginScreen from "./screens/LoginScreen.js";
+import DrawerNavigator from "./navigation/DrawerNavigator.js";
 
 const Stack = createStackNavigator();
 
