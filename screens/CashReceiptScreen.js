@@ -328,6 +328,7 @@
 //     marginTop: 8,
 //   },   
 // });
+
 import React, { useState } from 'react';
 import {
   View,
@@ -341,6 +342,8 @@ import {
   Image,
   Alert,
 } from 'react-native';
+
+import {getCurrentLocation} from '../components/function.js'
 import Button from '../components/Button';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -349,6 +352,8 @@ import { getAuthToken } from '../components/authToken';
 import { BACKEND_BASE_URL } from '@env';
 
 export default function CashReceiptScreen() {
+  const [location, setLocation] = useState(null);
+
   const [customerName, setCustomerName] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [contactNumber, setContactNumber] = useState('');
@@ -451,6 +456,12 @@ export default function CashReceiptScreen() {
     setIsLoading(true);
 
     try {
+
+       const locationCoords = await getCurrentLocation();
+    if (!locationCoords) {
+      setIsLoading(false);
+      return;
+    }
       const formatDateForSQL = (d) => {
         if (!d) return null;
         const day = String(d.getDate()).padStart(2, '0');
@@ -470,6 +481,8 @@ export default function CashReceiptScreen() {
         collectedBy: collectedBy || null,
         amount: amount ? Number(amount) : null,
         amountInWords: amountInWords || null,
+         latitude: locationCoords.latitude,
+      longitude: locationCoords.longitude,
       };
 
       const token = await getAuthToken();
