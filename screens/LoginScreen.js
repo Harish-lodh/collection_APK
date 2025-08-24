@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-
+import {BACKEND_BASE_URL} from '@env'
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,7 +14,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const res = await axios.post("http://10.0.2.2:3000/auth/login", { email, password });
+      const res = await axios.post(`${BACKEND_BASE_URL}/auth/login`, { email, password });
       console.log("thiss tokeeeeeennn",res.data)
       if (res.data.token) {
         // Save token and user data in AsyncStorage

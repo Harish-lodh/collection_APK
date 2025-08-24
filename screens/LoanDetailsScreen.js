@@ -10,7 +10,7 @@ import {
 import { BACKEND_BASE_URL } from '@env';
 import Button from '../components/Button';
 import axios from 'axios';
-import isLoanId from '../components/function';
+import isCustomerName from '../components/function';
 
 export default function LoanDetailsScreen() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,15 +28,15 @@ export default function LoanDetailsScreen() {
     setIsLoading(true);
     setUserData(null);
 
-    const isLoan = isLoanId(trimmedSearch);
+    const isCustName = isCustomerName(trimmedSearch);
 
     try {
       const response = await axios.get(`${BACKEND_BASE_URL}/api/user-data`, {
-        params: isLoan
-          ? { loanId: trimmedSearch }
-          : { customerName: trimmedSearch },
+        params: isCustName
+          ?
+          { customerName: trimmedSearch } : { loanId: trimmedSearch },
       });
-
+      console.log(response.data.data)
       if (response.data?.data?.length) {
         setUserData(response.data.data[0]);
       } else {
