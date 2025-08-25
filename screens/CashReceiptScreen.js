@@ -339,7 +339,7 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
-  Image,
+  
   Alert,
 } from 'react-native';
 
@@ -355,6 +355,8 @@ export default function CashReceiptScreen() {
   const [location, setLocation] = useState(null);
 
   const [customerName, setCustomerName] = useState('');
+    const [panNumber, setPanNumber] = useState('');
+
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [loanId, setLoanId] = useState('');
@@ -368,6 +370,7 @@ export default function CashReceiptScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const [errors, setErrors] = useState({
+    panNumber:'',
     customerName: '',
     vehicleNumber: '',
     contactNumber: '',
@@ -402,6 +405,7 @@ export default function CashReceiptScreen() {
   const validateForm = () => {
     let isValid = true;
     const newErrors = {
+      panNumber:'',
       customerName: '',
       vehicleNumber: '',
       contactNumber: '',
@@ -410,7 +414,9 @@ export default function CashReceiptScreen() {
       amount: '',
       amountInWords: '',
     };
-
+    if(!panNumber.trim()){
+      newErrors.panNumber='PanNumber is required'
+    }
     if (!customerName.trim()) {
       newErrors.customerName = 'Customer Name is required';
       isValid = false;
@@ -475,6 +481,7 @@ export default function CashReceiptScreen() {
         customerName: customerName || null,
         vehicleNumber: vehicleNumber || null,
         contactNumber: contactNumber || null,
+        panNumber:panNumber||null,
         paymentDate: formatDateForSQL(paymentDate),
         paymentMode: selectedValue || null,
         paymentRef: paymentRef || null,
@@ -503,6 +510,7 @@ export default function CashReceiptScreen() {
           text: 'OK',
           onPress: () => {
             // Reset form
+            setPanNumber('');
             setCustomerName('');
             setVehicleNumber('');
             setContactNumber('');
@@ -514,6 +522,7 @@ export default function CashReceiptScreen() {
             setAmount('');
             setAmountInWords('');
             setErrors({
+              panNumber:'',
               customerName: '',
               vehicleNumber: '',
               contactNumber: '',
@@ -542,6 +551,34 @@ export default function CashReceiptScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+               <View style={styles.field}>
+        <Text style={styles.label}>Phone Number *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Contact Number"
+          keyboardType="phone-pad"
+          value={contactNumber}
+          onChangeText={(text) => {
+            setContactNumber(text);
+            setErrors(prev => ({ ...prev, contactNumber: '' }));
+          }}
+        />
+        {errors.contactNumber ? <Text style={styles.errorText}>{errors.contactNumber}</Text> : null}
+      </View>
+             <View style={styles.field}>
+        <Text style={styles.label}>Pan Number *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter Pan Number"
+          value={panNumber}
+          onChangeText={(text) => {
+            setPanNumber(text);
+            setErrors(prev => ({ ...prev, panNumber: '' }));
+          }}
+        />
+        {errors.panNumber ? <Text style={styles.errorText}>{errors.panNumber}</Text> : null}
+      </View>
+
       <View style={styles.field}>
         <Text style={styles.label}>Customer Name *</Text>
         <TextInput
@@ -570,20 +607,7 @@ export default function CashReceiptScreen() {
         {errors.vehicleNumber ? <Text style={styles.errorText}>{errors.vehicleNumber}</Text> : null}
       </View>
 
-      <View style={styles.field}>
-        <Text style={styles.label}>Customer Phone Number *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter Contact Number"
-          keyboardType="phone-pad"
-          value={contactNumber}
-          onChangeText={(text) => {
-            setContactNumber(text);
-            setErrors(prev => ({ ...prev, contactNumber: '' }));
-          }}
-        />
-        {errors.contactNumber ? <Text style={styles.errorText}>{errors.contactNumber}</Text> : null}
-      </View>
+ 
 
       <View style={styles.field}>
         <Text style={styles.label}>Loan ID *</Text>
@@ -683,7 +707,7 @@ export default function CashReceiptScreen() {
         {errors.amountInWords ? <Text style={styles.errorText}>{errors.amountInWords}</Text> : null}
       </View>
 
-      <View style={styles.container}>
+      {/* <View style={styles.container}>
         <Text style={styles.title}>Scan to Pay</Text>
         <View style={styles.qrContainer}>
           <Image
@@ -693,7 +717,7 @@ export default function CashReceiptScreen() {
           />
         </View>
         <Text style={styles.note}>Use any UPI app to scan this QR</Text>
-      </View>
+      </View> */}
 
       <Button 
         label={isLoading ? 'Saving...' : 'Save Loan'} 
@@ -747,29 +771,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: '#fff',
   },
-  qrContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 20,
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  qrImage: {
-    width: 220,
-    height: 220,
-  },
-  note: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 8,
-  },
+
+
   loaderContainer: {
     marginTop: 16,
     alignItems: 'center',

@@ -47,8 +47,9 @@ export default function DrawerNavigator() {
       screenOptions={{ headerTitleAlign: "center", drawerType: "front" }}
     >
       <Drawer.Screen name="Home" component={HomeScreen} />
-      <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Details" }} />
-      <Drawer.Screen name="CashReceipt" component={CashReceiptScreen} options={{ title: "Cash Receipt" }} />
+          <Drawer.Screen name="CashReceipt" component={CashReceiptScreen} options={{ title: "Cash Receipt" }} />
+      <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} />
+  
     </Drawer.Navigator>
   );
 }
