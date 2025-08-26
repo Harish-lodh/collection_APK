@@ -31,7 +31,7 @@ export default function LoanDetailsScreen() {
     const isCustName = isCustomerName(trimmedSearch);
 
     try {
-      const response = await axios.get(`${BACKEND_BASE_URL}/api/user-data`, {
+      const response = await axios.get(`${BACKEND_BASE_URL}/embifi/user-Details`, {
         params: isCustName
           ?
           { customerName: trimmedSearch } : { loanId: trimmedSearch },
