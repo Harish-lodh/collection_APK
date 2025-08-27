@@ -1,6 +1,4 @@
-
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,16 +14,17 @@ import {
 
 import debounce from 'lodash.debounce';
 
-import { selectFromGallery } from '../utils/index.js'
-import { captureFromCamera } from '../utils/index.js'
-import { getCurrentLocation } from '../components/function.js'
+import { selectFromGallery } from '../utils/index.js';
+import { captureFromCamera } from '../utils/index.js';
+import { getCurrentLocation } from '../components/function.js';
 import Button from '../components/Button';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Dropdown } from 'react-native-element-dropdown';
 import axios from 'axios';
 import { getAuthToken } from '../components/authToken';
 import { BACKEND_BASE_URL } from '@env';
-import { fetchAutoData } from '../utils/autofetch.js'
+import { fetchAutoData } from '../utils/autofetch.js';
+
 // import * as ImagePicker from 'expo-image-picker';
 
 export default function CashReceiptScreen() {
@@ -33,18 +32,27 @@ export default function CashReceiptScreen() {
 
   const [customerName, setCustomerName] = useState('');
   const [panNumber, setPanNumber] = useState('');
-
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [loanId, setLoanId] = useState('');
   const [paymentDate, setPaymentDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedValue, setSelectedValue] = useState(null);
+
+  const [selectedValue, setSelectedValue] = useState(null); // Cash / Cheque / UPI
   const [paymentRef, setPaymentRef] = useState('');
   const [collectedBy, setCollectedBy] = useState('');
   const [amount, setAmount] = useState('');
   const [amountInWords, setAmountInWords] = useState('');
+
   const [isLoading, setIsLoading] = useState(false);
+
+  // Image picking UI
+  const [photoSource, setPhotoSource] = useState(null); // 'gallery' | 'camera' | null
+  const [photoError, setPhotoError] = useState('');
+  const [image, setImage] = useState(null);
+
+  // Helper: treat anything except "Cash" as non-cash
+  const isNonCash = selectedValue === 'UPI' || selectedValue === 'Cheque';
 
   const [errors, setErrors] = useState({
     panNumber: '',
@@ -55,6 +63,10 @@ export default function CashReceiptScreen() {
     paymentDate: '',
     amount: '',
     amountInWords: '',
+    collectedBy: '',
+    paymentMode: '',
+    paymentRef: '',
+    image: '',
   });
 
   const data = [
@@ -75,21 +87,28 @@ export default function CashReceiptScreen() {
     setShowDatePicker(false);
     if (selected) {
       setPaymentDate(selected);
-      setErrors(prev => ({ ...prev, paymentDate: '' }));
+      setErrors((prev) => ({ ...prev, paymentDate: '' }));
     }
   };
-  const [image, setImage] = useState(null);
 
   const onSelectFromGallery = async () => {
     const asset = await selectFromGallery();
-    console.log(asset) // should return { uri, fileName, type, ... }
-    if (asset) setImage(asset);
+    if (asset) {
+      setImage(asset);
+      setPhotoError('');
+      setErrors((p) => ({ ...p, image: '' }));
+    }
   };
 
   const onCaptureFromCamera = async () => {
     const asset = await captureFromCamera();
-    if (asset) setImage(asset);
+    if (asset) {
+      setImage(asset);
+      setPhotoError('');
+      setErrors((p) => ({ ...p, image: '' }));
+    }
   };
+
   const validateForm = () => {
     let isValid = true;
     const newErrors = {
@@ -100,10 +119,16 @@ export default function CashReceiptScreen() {
       loanId: '',
       paymentDate: '',
       amount: '',
-
+      amountInWords: '',
+      collectedBy: '',
+      paymentMode: '',
+      paymentRef: '',
+      image: '',
     };
+
     if (!panNumber.trim()) {
-      newErrors.panNumber = 'PanNumber is required'
+      newErrors.panNumber = 'PanNumber is required';
+      isValid = false;
     }
     if (!customerName.trim()) {
       newErrors.customerName = 'Customer Name is required';
@@ -113,6 +138,7 @@ export default function CashReceiptScreen() {
       newErrors.vehicleNumber = 'Vehicle Number is required';
       isValid = false;
     }
+
     if (!contactNumber.trim()) {
       newErrors.contactNumber = 'Contact Number is required';
       isValid = false;
@@ -120,6 +146,7 @@ export default function CashReceiptScreen() {
       newErrors.contactNumber = 'Enter a valid 10-digit phone number';
       isValid = false;
     }
+
     if (!loanId.trim()) {
       newErrors.loanId = 'Loan ID is required';
       isValid = false;
@@ -128,6 +155,15 @@ export default function CashReceiptScreen() {
       newErrors.paymentDate = 'Payment Date is required';
       isValid = false;
     }
+    if (!selectedValue) {
+      newErrors.paymentMode = 'Payment Mode is required';
+      isValid = false;
+    }
+    if (!collectedBy.trim()) {
+      newErrors.collectedBy = 'Collected By is required';
+      isValid = false;
+    }
+
     if (!amount.trim()) {
       newErrors.amount = 'Amount is required';
       isValid = false;
@@ -136,28 +172,55 @@ export default function CashReceiptScreen() {
       isValid = false;
     }
 
+    // Conditional rules for non-cash
+    if (isNonCash) {
+      if (!paymentRef.trim()) {
+        newErrors.paymentRef = 'Reference number is required for UPI/Cheque';
+        isValid = false;
+      }
+      if (!image?.uri) {
+        newErrors.image = 'Receipt photo is required for UPI/Cheque';
+        isValid = false;
+      }
+    }
+
     setErrors(newErrors);
     return isValid;
   };
+
   const debouncedFetch = debounce((key, value, setters) => {
-    if (value && value.length >= 10) {
+    if (value) {
       fetchAutoData(key, value, setters);
     }
   }, 500);
 
+  useEffect(() => {
+    // cleanup debounce on unmount
+    return () => debouncedFetch.cancel();
+  }, []);
 
   const handleSave = async () => {
     if (!validateForm()) return;
-    console.log('entered api')
+
     setIsLoading(true);
 
-    try {
+    // Only enforce image for non-cash
+    if (isNonCash && !image?.uri) {
+      setPhotoError('Receipt photo is required for UPI/Cheque.');
+      setIsLoading(false);
+      return;
+    } else {
+      setPhotoError('');
+    }
 
+    try {
       const locationCoords = await getCurrentLocation();
       if (!locationCoords) {
         setIsLoading(false);
         return;
       }
+      setLocation(locationCoords);
+
       const formatDateForSQL = (d) => {
         if (!d) return null;
         const day = String(d.getDate()).padStart(2, '0');
@@ -189,15 +252,15 @@ export default function CashReceiptScreen() {
         });
       }
 
-      console.log(form);
       const token = await getAuthToken();
-      console.log(BACKEND_BASE_URL)
+
       const res = await axios.post(
         `${BACKEND_BASE_URL}/loanDetails/save-loan`,
         form,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            // Let RN set multipart boundary automatically
             "Content-Type": "multipart/form-data",
           },
         }
@@ -219,7 +282,9 @@ export default function CashReceiptScreen() {
             setCollectedBy('');
             setAmount('');
             setAmountInWords('');
-            setImage(null)
+            setImage(null);
+            setPhotoSource(null);
+            setPhotoError('');
             setErrors({
               panNumber: '',
               customerName: '',
@@ -229,15 +294,21 @@ export default function CashReceiptScreen() {
               paymentDate: '',
               amount: '',
               amountInWords: '',
+              collectedBy: '',
+              paymentMode: '',
+              paymentRef: '',
+              image: '',
             });
-          }
-        }
+          },
+        },
       ]);
-
     } catch (error) {
-      console.error("Save Error:", error);
+      console.error('Save Error:', error);
       if (error.response) {
-        Alert.alert('API Error', `${error.response.status}: ${error.response.data?.message || 'Server error'}`);
+        Alert.alert(
+          'API Error',
+          `${error.response.status}: ${error.response.data?.message || 'Server error'}`
+        );
       } else if (error.request) {
         Alert.alert('Network Error', 'No response from server. Check base URL / network.');
       } else {
@@ -250,12 +321,16 @@ export default function CashReceiptScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Phone */}
       <View style={styles.field}>
-        <Text style={styles.label}>Phone Number *</Text>
+        <Text style={styles.label}>
+          Phone Number <Text style={styles.req}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Enter Contact Number"
-          keyboardType="phone-pad"
+          keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'numeric'}
+          maxLength={10}
           value={contactNumber}
           onChangeText={(text) => {
             setContactNumber(text);
@@ -264,38 +339,48 @@ export default function CashReceiptScreen() {
                 setCustomerName,
                 setLoanId,
                 setContactNumber,
-                setPanNumber
+                setPanNumber,
               });
             }
-            setErrors(prev => ({ ...prev, contactNumber: '' }));
+            setErrors((prev) => ({ ...prev, contactNumber: '' }));
           }}
         />
         {errors.contactNumber ? <Text style={styles.errorText}>{errors.contactNumber}</Text> : null}
       </View>
+
+      {/* PAN */}
       <View style={styles.field}>
-        <Text style={styles.label}>Pan Number *</Text>
+        <Text style={styles.label}>
+          Pan Number <Text style={styles.req}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Enter Pan Number"
           value={panNumber}
+          maxLength={10}
+          autoCapitalize="characters"
           onChangeText={(text) => {
-            setPanNumber(text);
-            if (text.length === 10) {
-              debouncedFetch('panNumber', text, {
+            const t = text.toUpperCase();
+            setPanNumber(t);
+            if (t.length === 10) {
+              debouncedFetch('panNumber', t, {
                 setCustomerName,
                 setLoanId,
                 setContactNumber,
-                setPanNumber
+                setPanNumber,
               });
             }
-            setErrors(prev => ({ ...prev, panNumber: '' }));
+            setErrors((prev) => ({ ...prev, panNumber: '' }));
           }}
         />
         {errors.panNumber ? <Text style={styles.errorText}>{errors.panNumber}</Text> : null}
       </View>
 
+      {/* Customer Name */}
       <View style={styles.field}>
-        <Text style={styles.label}>Customer Name *</Text>
+        <Text style={styles.label}>
+          Customer Name <Text style={styles.req}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Enter Customer Name"
@@ -303,44 +388,52 @@ export default function CashReceiptScreen() {
           onChangeText={(text) => {
             setCustomerName(text);
             debouncedFetch('customerName', text);
-            setErrors(prev => ({ ...prev, customerName: '' }));
+            setErrors((prev) => ({ ...prev, customerName: '' }));
           }}
         />
         {errors.customerName ? <Text style={styles.errorText}>{errors.customerName}</Text> : null}
       </View>
 
+      {/* Vehicle No */}
       <View style={styles.field}>
-        <Text style={styles.label}>Vehicle Number *</Text>
+        <Text style={styles.label}>
+          Vehicle Number <Text style={styles.req}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Enter Vehicle Number"
           value={vehicleNumber}
+          autoCapitalize="characters"
           onChangeText={(text) => {
-            setVehicleNumber(text);
-            setErrors(prev => ({ ...prev, vehicleNumber: '' }));
+            setVehicleNumber(text.toUpperCase());
+            setErrors((prev) => ({ ...prev, vehicleNumber: '' }));
           }}
         />
         {errors.vehicleNumber ? <Text style={styles.errorText}>{errors.vehicleNumber}</Text> : null}
       </View>
 
-
-
+      {/* Loan ID */}
       <View style={styles.field}>
-        <Text style={styles.label}>Loan ID *</Text>
+        <Text style={styles.label}>
+          Loan ID <Text style={styles.req}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Enter Loan ID"
           value={loanId}
           onChangeText={(text) => {
             setLoanId(text);
-            setErrors(prev => ({ ...prev, loanId: '' }));
+            setErrors((prev) => ({ ...prev, loanId: '' }));
           }}
         />
         {errors.loanId ? <Text style={styles.errorText}>{errors.loanId}</Text> : null}
       </View>
 
+      {/* Payment Date */}
       <View style={styles.field}>
-        <Text style={styles.label}>Payment Date *</Text>
+        <Text style={styles.label}>
+          Payment Date <Text style={styles.req}>*</Text>
+        </Text>
         <Pressable style={styles.inputRow} onPress={() => setShowDatePicker(true)}>
           <Text style={[styles.valueText, !paymentDate && styles.placeholder]}>
             {paymentDate ? formatDate(paymentDate) : 'Select date'}
@@ -357,8 +450,11 @@ export default function CashReceiptScreen() {
         )}
       </View>
 
+      {/* Payment Mode */}
       <View style={{ zIndex: 1000, elevation: 3, marginBottom: 12 }}>
-        <Text style={styles.label}>Payment Mode *</Text>
+        <Text style={styles.label}>
+          Payment Mode <Text style={styles.req}>*</Text>
+        </Text>
         <Dropdown
           style={styles.dropdown}
           containerStyle={{ borderRadius: 8 }}
@@ -369,45 +465,63 @@ export default function CashReceiptScreen() {
           valueField="value"
           placeholder="Select an option"
           value={selectedValue}
-          onChange={item => setSelectedValue(item.value)}
+          onChange={(item) => {
+            setSelectedValue(item.value);
+            // clear mode-related errors when switching
+            setErrors((prev) => ({
+              ...prev,
+              paymentMode: '',
+              ...(item.value === 'Cash' ? { paymentRef: '', image: '' } : {}),
+            }));
+          }}
         />
-        {selectedValue && <Text style={{ marginTop: 4 }}>Selected: {selectedValue}</Text>}
+        {selectedValue ? <Text style={{ marginTop: 4 }}>Selected: {selectedValue}</Text> : null}
+        {errors.paymentMode ? <Text style={styles.errorText}>{errors.paymentMode}</Text> : null}
       </View>
 
+      {/* Payment Ref (conditional asterisk) */}
       <View style={styles.field}>
-        <Text style={styles.label}>Cash/Cheque/UPI Ref. No.</Text>
+        <Text style={styles.label}>
+          Cash/Cheque/UPI Ref. No. {isNonCash ? <Text style={styles.req}>*</Text> : null}
+        </Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter Reference Number"
+          placeholder={
+            isNonCash
+              ? 'Enter Reference Number (required for UPI/Cheque)'
+              : 'Enter Reference Number (optional for Cash)'
+          }
           value={paymentRef}
-          onChangeText={setPaymentRef}
+          onChangeText={(t) => {
+            setPaymentRef(t);
+            if (t) setErrors((p) => ({ ...p, paymentRef: '' }));
+          }}
         />
+        {errors.paymentRef ? <Text style={styles.errorText}>{errors.paymentRef}</Text> : null}
       </View>
-      {/* <view style={styles.field}>
-        <Pressable onPress={pickImage} style={{ marginVertical: 10, padding: 12, backgroundColor: '#eee', borderRadius: 10 }}>
-          <Text>Select Screenshot or Photo</Text>
-        </Pressable>
 
-        {image && (
-          <Image
-            source={{ uri: image.uri }}
-            style={{ width: 200, height: 200, marginBottom: 10 }}
-          />
-        )}
-
-      </view> */}
+      {/* Collected By */}
       <View style={styles.field}>
-        <Text style={styles.label}>Payment Collected By</Text>
+        <Text style={styles.label}>
+          Payment Collected By <Text style={styles.req}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Enter RM Name"
           value={collectedBy}
-          onChangeText={setCollectedBy}
+          onChangeText={(t) => {
+            setCollectedBy(t);
+            if (t) setErrors((p) => ({ ...p, collectedBy: '' }));
+          }}
         />
+        {errors.collectedBy ? <Text style={styles.errorText}>{errors.collectedBy}</Text> : null}
       </View>
 
+      {/* Amount */}
       <View style={styles.field}>
-        <Text style={styles.label}>Amount (₹) *</Text>
+        <Text style={styles.label}>
+          Amount (₹) <Text style={styles.req}>*</Text>
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Amount"
@@ -415,12 +529,13 @@ export default function CashReceiptScreen() {
           value={amount}
           onChangeText={(text) => {
             setAmount(text);
-            setErrors(prev => ({ ...prev, amount: '' }));
+            setErrors((prev) => ({ ...prev, amount: '' }));
           }}
         />
         {errors.amount ? <Text style={styles.errorText}>{errors.amount}</Text> : null}
       </View>
 
+      {/* Amount in Words */}
       <View style={styles.field}>
         <Text style={styles.label}>Amount in Words</Text>
         <TextInput
@@ -429,61 +544,112 @@ export default function CashReceiptScreen() {
           value={amountInWords}
           onChangeText={(text) => {
             setAmountInWords(text);
-            setErrors(prev => ({ ...prev, amountInWords: '' }));
+            setErrors((prev) => ({ ...prev, amountInWords: '' }));
           }}
         />
         {errors.amountInWords ? <Text style={styles.errorText}>{errors.amountInWords}</Text> : null}
       </View>
+
+      {/* --- Photo Source (required only for non-cash) --- */}
       <View style={styles.field}>
-        <Pressable
-          onPress={onSelectFromGallery}
-          style={{ padding: 12, backgroundColor: '#eee', borderRadius: 10, marginBottom: 8 }}
-        >
-          <Text>Select from Gallery</Text>
-        </Pressable>
-        <Pressable
-          onPress={onCaptureFromCamera}
-          style={{ padding: 12, backgroundColor: '#eee', borderRadius: 10 }}
-        >
-          <Text>Capture from Camera</Text>
-        </Pressable>
+        <View style={styles.headerRow}>
+          <Text style={styles.label}>
+            Receipt Photo {isNonCash ? <Text style={styles.req}>*</Text> : null}
+          </Text>
+          {image?.uri ? (
+            <Text style={styles.hintOk}>Selected</Text>
+          ) : (
+            <Text style={styles.hint}>{isNonCash ? 'Required for UPI/Cheque' : 'Optional for Cash'}</Text>
+          )}
+        </View>
 
-        {image?.uri && (
-          <View style={{ alignItems: 'center', marginTop: 10 }}>
-            <View style={{ position: 'relative' }}>
-              <Image
-                source={{ uri: image.uri }}
-                style={{ width: 200, height: 200, borderRadius: 8 }}
-              />
-              <Pressable
-                onPress={() => setImage(null)}
-                style={{
-                  position: 'absolute',
-                  top: 5,
-                  right: 5,
-                  backgroundColor: 'rgba(0,0,0,0.6)',
-                  borderRadius: 12,
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                }}
-              >
-                <Text style={{ color: '#fff', fontSize: 18 }}>✕</Text>
-              </Pressable>
-
+        {/* Segmented cards */}
+        <View style={styles.segmentRow}>
+          <Pressable
+            onPress={() => setPhotoSource('gallery')}
+            style={[styles.segment, photoSource === 'gallery' && styles.segmentActive]}
+            hitSlop={8}
+          >
+            <Text style={[styles.segmentEmoji, photoSource === 'gallery' && styles.segmentEmojiActive]}>
+              🖼️
+            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.segmentTitle, photoSource === 'gallery' && styles.segmentTitleActive]}>
+                Gallery
+              </Text>
+              <Text style={styles.segmentSub}>Pick an existing photo</Text>
             </View>
+            {photoSource === 'gallery' ? <Text style={styles.tick}>✓</Text> : null}
+          </Pressable>
+
+          <Pressable
+            onPress={() => setPhotoSource('camera')}
+            style={[styles.segment, photoSource === 'camera' && styles.segmentActive]}
+            hitSlop={8}
+          >
+            <Text style={[styles.segmentEmoji, photoSource === 'camera' && styles.segmentEmojiActive]}>
+              📷
+            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.segmentTitle, photoSource === 'camera' && styles.segmentTitleActive]}>
+                Camera
+              </Text>
+              <Text style={styles.segmentSub}>Capture a new photo</Text>
+            </View>
+            {photoSource === 'camera' ? <Text style={styles.tick}>✓</Text> : null}
+          </Pressable>
+        </View>
+
+        {/* Pick button */}
+        <Pressable
+          onPress={async () => {
+            setPhotoError('');
+            if (!photoSource) {
+              setPhotoError('Please choose Gallery or Camera.');
+              return;
+            }
+            if (photoSource === 'gallery') await onSelectFromGallery();
+            if (photoSource === 'camera') await onCaptureFromCamera();
+          }}
+          style={[styles.primaryBtn, !photoSource && { opacity: 0.6 }]}
+        >
+          <Text style={styles.primaryBtnText}>Pick Photo</Text>
+        </Pressable>
+
+        {/* Errors underneath */}
+        {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
+        {errors.image ? <Text style={styles.errorText}>{errors.image}</Text> : null}
+
+        {/* Preview with custom close pill */}
+        {image?.uri && (
+          <View style={{ alignItems: 'center', marginTop: 12 }}>
+            <View style={{ position: 'relative' }}>
+              <Image source={{ uri: image.uri }} style={{ width: 220, height: 220, borderRadius: 10 }} />
+              <Pressable
+                onPress={() => {
+                  setImage(null);
+                  if (isNonCash) {
+                    setPhotoError('Receipt photo is required for UPI/Cheque.');
+                    setErrors((p) => ({ ...p, image: 'Receipt photo is required for UPI/Cheque' }));
+                  } else {
+                    setPhotoError('');
+                    setErrors((p) => ({ ...p, image: '' }));
+                  }
+                }}
+                accessibilityLabel="Remove image"
+                hitSlop={8}
+                style={styles.closePill}
+              >
+                <Text style={styles.closeText}>×</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.previewCaption}>Preview</Text>
           </View>
         )}
-
       </View>
 
-
-
-
-      <Button
-        label={isLoading ? 'Saving...' : 'Save Loan'}
-        onPress={handleSave}
-        disabled={isLoading}
-      />
+      {/* Submit */}
+      <Button label={isLoading ? 'Saving...' : 'Save Loan'} onPress={handleSave} disabled={isLoading} />
       {isLoading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
@@ -531,10 +697,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: '#fff',
   },
+  loaderContainer: { marginTop: 16, alignItems: 'center' },
 
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  req: { color: '#e5484d' },
+  hint: { fontSize: 12, color: '#888' },
+  hintOk: { fontSize: 12, color: '#0a7' },
 
-  loaderContainer: {
-    marginTop: 16,
+  segmentRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  segment: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fafafa',
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
+  segmentActive: {
+    borderColor: '#0a7',
+    backgroundColor: '#eafff5',
+  },
+  segmentEmoji: { fontSize: 18, opacity: 0.7 },
+  segmentEmojiActive: { opacity: 1 },
+  segmentTitle: { color: '#333', fontWeight: '700' },
+  segmentTitleActive: { color: '#0a7' },
+  segmentSub: { color: '#666', fontSize: 12 },
+  tick: { fontWeight: '900', fontSize: 14, color: '#0a7' },
+
+  primaryBtn: {
+    marginTop: 6,
+    backgroundColor: '#0a7',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  closePill: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  closeText: { color: '#fff', fontSize: 16, lineHeight: 16, fontWeight: '700' },
+  previewCaption: { marginTop: 6, fontSize: 12, color: '#666' },
 });
