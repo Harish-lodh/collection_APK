@@ -80,19 +80,9 @@ export default function CashReceiptScreen() {
   };
   const [image, setImage] = useState(null);
 
-  // const pickImage = async () => {
-  //   const result = await ImagePicker.launchImageLibraryAsync({
-  //     mediaTypes: ImagePicker.MediaTypeOptions.Images,
-  //     allowsEditing: true,
-  //     quality: 0.7,
-  //   });
-
-  //   if (!result.cancelled) {
-  //     setImage(result.assets[0]);
-  //   }
-  // };
   const onSelectFromGallery = async () => {
-    const asset = await selectFromGallery();   // should return { uri, fileName, type, ... }
+    const asset = await selectFromGallery();
+    console.log(asset) // should return { uri, fileName, type, ... }
     if (asset) setImage(asset);
   };
 
@@ -145,10 +135,6 @@ export default function CashReceiptScreen() {
       newErrors.amount = 'Enter a valid amount';
       isValid = false;
     }
-    // if (!amountInWords.trim()) {
-    //   newErrors.amountInWords = 'Amount in words is required';
-    //   isValid = false;
-    // }
 
     setErrors(newErrors);
     return isValid;
@@ -162,7 +148,7 @@ export default function CashReceiptScreen() {
 
   const handleSave = async () => {
     if (!validateForm()) return;
-
+    console.log('entered api')
     setIsLoading(true);
 
     try {
@@ -196,7 +182,6 @@ export default function CashReceiptScreen() {
       form.append('longitude', String(locationCoords.longitude));
 
       if (image?.uri) {
-        // IMPORTANT: field name must match upload.single('image')
         form.append('image', {
           uri: image.uri,
           name: image.fileName || `receipt_${Date.now()}.jpg`,
@@ -204,17 +189,16 @@ export default function CashReceiptScreen() {
         });
       }
 
-
+      console.log(form);
       const token = await getAuthToken();
-      console.log(token)
+      console.log(BACKEND_BASE_URL)
       const res = await axios.post(
         `${BACKEND_BASE_URL}/loanDetails/save-loan`,
         form,
         {
-          timeout: 10000,
           headers: {
             Authorization: `Bearer ${token}`,
-          //  "Content-Type": "application/json",
+            "Content-Type": "multipart/form-data",
           },
         }
       );
@@ -235,6 +219,7 @@ export default function CashReceiptScreen() {
             setCollectedBy('');
             setAmount('');
             setAmountInWords('');
+            setImage(null)
             setErrors({
               panNumber: '',
               customerName: '',
@@ -450,17 +435,47 @@ export default function CashReceiptScreen() {
         {errors.amountInWords ? <Text style={styles.errorText}>{errors.amountInWords}</Text> : null}
       </View>
       <View style={styles.field}>
-        <Pressable onPress={onSelectFromGallery} style={{ padding: 12, backgroundColor: '#eee', borderRadius: 10, marginBottom: 8 }}>
+        <Pressable
+          onPress={onSelectFromGallery}
+          style={{ padding: 12, backgroundColor: '#eee', borderRadius: 10, marginBottom: 8 }}
+        >
           <Text>Select from Gallery</Text>
         </Pressable>
-        <Pressable onPress={onCaptureFromCamera} style={{ padding: 12, backgroundColor: '#eee', borderRadius: 10 }}>
+        <Pressable
+          onPress={onCaptureFromCamera}
+          style={{ padding: 12, backgroundColor: '#eee', borderRadius: 10 }}
+        >
           <Text>Capture from Camera</Text>
         </Pressable>
 
         {image?.uri && (
-          <Image source={{ uri: image.uri }} style={{ width: 200, height: 200, marginTop: 10 }} />
+          <View style={{ alignItems: 'center', marginTop: 10 }}>
+            <View style={{ position: 'relative' }}>
+              <Image
+                source={{ uri: image.uri }}
+                style={{ width: 200, height: 200, borderRadius: 8 }}
+              />
+              <Pressable
+                onPress={() => setImage(null)}
+                style={{
+                  position: 'absolute',
+                  top: 5,
+                  right: 5,
+                  backgroundColor: 'rgba(0,0,0,0.6)',
+                  borderRadius: 12,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 18 }}>✕</Text>
+              </Pressable>
+
+            </View>
+          </View>
         )}
+
       </View>
+
 
 
 
