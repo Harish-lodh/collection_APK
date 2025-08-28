@@ -94,6 +94,7 @@ export default function CashReceiptScreen() {
   const onSelectFromGallery = async () => {
     const asset = await selectFromGallery();
     if (asset) {
+  console.log(asset)
       setImage(asset);
       setPhotoError('');
       setErrors((p) => ({ ...p, image: '' }));
