@@ -178,11 +178,15 @@ export default function CashReceiptScreen() {
         newErrors.paymentRef = 'Reference number is required for UPI/Cheque';
         isValid = false;
       }
-      if (!image?.uri) {
-        newErrors.image = 'Receipt photo is required for UPI/Cheque';
+      // if (!image?.uri) {
+      //   newErrors.image = 'Receipt photo is required for UPI/Cheque';
+      //   isValid = false;
+      // }
+    }
+         if (!image?.uri) {
+        newErrors.image = 'Receipt photo is required for UPI/Cheque/cash';
         isValid = false;
       }
-    }
 
     setErrors(newErrors);
     return isValid;
@@ -206,7 +210,7 @@ export default function CashReceiptScreen() {
 
     // Only enforce image for non-cash
     if (isNonCash && !image?.uri) {
-      setPhotoError('Receipt photo is required for UPI/Cheque.');
+      setPhotoError('Receipt photo is required for UPI/Cheque/Cash.');
       setIsLoading(false);
       return;
     } else {
@@ -554,12 +558,12 @@ export default function CashReceiptScreen() {
       <View style={styles.field}>
         <View style={styles.headerRow}>
           <Text style={styles.label}>
-            Receipt Photo {isNonCash ? <Text style={styles.req}>*</Text> : null}
+            Receipt Photo <Text style={styles.req}>*</Text>
           </Text>
           {image?.uri ? (
             <Text style={styles.hintOk}>Selected</Text>
           ) : (
-            <Text style={styles.hint}>{isNonCash ? 'Required for UPI/Cheque' : 'Optional for Cash'}</Text>
+            <Text style={styles.hint}>image is required</Text>
           )}
         </View>
 
@@ -629,8 +633,8 @@ export default function CashReceiptScreen() {
                 onPress={() => {
                   setImage(null);
                   if (isNonCash) {
-                    setPhotoError('Receipt photo is required for UPI/Cheque.');
-                    setErrors((p) => ({ ...p, image: 'Receipt photo is required for UPI/Cheque' }));
+                    setPhotoError('Receipt photo is required.');
+                    setErrors((p) => ({ ...p, image: 'Receipt photo is required ' }));
                   } else {
                     setPhotoError('');
                     setErrors((p) => ({ ...p, image: '' }));
