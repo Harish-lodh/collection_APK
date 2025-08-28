@@ -14,9 +14,18 @@ export const selectFromGallery = async () => {
     return null;
   }
 };
+
 export const captureFromCamera = async () => {
-  const res = await launchCamera({ mediaType: 'photo', quality: 0.7, saveToPhotos: true });
-  if (res.didCancel) return null;
-  if (res.errorCode) { console.log('camera error:', res.errorCode, res.errorMessage); return null; }
-  return res.assets?.[0] || null;
+  try {
+    const res = await launchCamera({ mediaType: 'photo', quality: 0.7, saveToPhotos: true });
+    if (res.didCancel) return null;
+    if (res.errorCode) {
+      console.log('camera error:', res.errorCode, res.errorMessage);
+      return null;
+    }
+    return res.assets?.[0] || null;
+  } catch (error) {
+    console.log('Camera error:', error);
+    return null;
+  }
 };
