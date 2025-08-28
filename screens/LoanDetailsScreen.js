@@ -10,33 +10,39 @@ import {
 import { BACKEND_BASE_URL } from '@env';
 import Button from '../components/Button';
 import axios from 'axios';
-import isCustomerName from '../components/function';
+import { Dropdown } from 'react-native-element-dropdown';
 
 export default function LoanDetailsScreen() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchType, setSearchType] = useState(null);
+  const [searchValue, setSearchValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userData, setUserData] = useState(null);
 
-  const handleSearch = async () => {
-    const trimmedSearch = searchTerm.trim();
+  const searchOptions = [
+      { label: 'Mobile Number', value: 'mobileNumber' },
+    { label: 'PAN Number', value: 'panNumber' },
+     { label: 'Customer Name', value: 'customerName' },
+    { label: 'Loan ID', value: 'loanId' },
+  ];
 
-    if (!trimmedSearch) {
-      alert('Please enter Loan ID or Customer Name');
+  const handleSearch = async () => {
+    if (!searchType || !searchValue.trim()) {
+      alert('Please select a search type and enter a value');
       return;
     }
 
     setIsLoading(true);
     setUserData(null);
 
-    const isCustName = isCustomerName(trimmedSearch);
-
     try {
       const response = await axios.get(`${BACKEND_BASE_URL}/embifi/user-Details`, {
-        params: isCustName
-          ?
-          { customerName: trimmedSearch } : { loanId: trimmedSearch },
+        params: {
+          [searchType]: searchValue.trim(),
+        },
       });
-      console.log(response.data.data)
+
+      console.log(response.data.data);
+
       if (response.data?.data?.length) {
         setUserData(response.data.data[0]);
       } else {
@@ -52,17 +58,39 @@ export default function LoanDetailsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Loan Details</Text>
+      <Text style={styles.title}>Loan Details Search</Text>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Search Loan</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter Loan ID / Customer Name"
-          value={searchTerm}
-          onChangeText={setSearchTerm}
+        <Text style={styles.label}>Search By</Text>
+        <Dropdown
+          style={styles.dropdown}
+          data={searchOptions}
+          labelField="label"
+          valueField="value"
+          placeholder="Select search type"
+          value={searchType}
+          onChange={(item) => {
+            setSearchType(item.value);
+            setSearchValue('');
+          }}
         />
       </View>
+
+      {searchType && (
+        <View style={styles.field}>
+          <Text style={styles.label}>Enter {searchOptions.find(o => o.value === searchType)?.label}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={`Enter ${searchOptions.find(o => o.value === searchType)?.label}`}
+            value={searchValue}
+            onChangeText={setSearchValue}
+            keyboardType={
+              searchType === 'mobileNumber' ? 'number-pad' : 'default'
+            }
+            autoCapitalize={searchType === 'panNumber' ? 'characters' : 'none'}
+          />
+        </View>
+      )}
 
       <Button label="Search" onPress={handleSearch} />
 
@@ -89,6 +117,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginBottom: 16 },
   field: { marginBottom: 12 },
   label: { fontSize: 14, fontWeight: '500', marginBottom: 6, color: '#333' },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: '#fff',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',

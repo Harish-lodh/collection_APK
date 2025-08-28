@@ -61,7 +61,7 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 10 },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20 },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20},
   info: { fontSize: 18, marginBottom: 10 },
   logoutButton: { marginTop: 14, backgroundColor: "red", padding: 12, borderRadius: 8 },
   logoutText: { color: "white", fontWeight: "bold" },
