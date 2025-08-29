@@ -14,6 +14,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
+      console.log(BACKEND_BASE_URL)
       const res = await axios.post(`${BACKEND_BASE_URL}/auth/login`, { email, password });
       console.log("thiss tokeeeeeennn",res.data)
       if (res.data.token) {

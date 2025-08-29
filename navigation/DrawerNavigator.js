@@ -31,7 +31,7 @@
 
 import React from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
-import LoanDetailsScreen from "../screens/LoanDetailsScreen";
+// import LoanDetailsScreen from "../screens/LoanDetailsScreen";
 
 import CashReceiptScreen from "../screens/CashReceiptScreen";
 import HomeScreen from "../screens/HomeScreen";
@@ -48,7 +48,7 @@ export default function DrawerNavigator() {
     >
       <Drawer.Screen name="Home" component={HomeScreen} />
           <Drawer.Screen name="CashReceipt" component={CashReceiptScreen} options={{ title: "Cash Receipt" }} />
-      <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} />
+      {/* <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} /> */}
   
     </Drawer.Navigator>
   );

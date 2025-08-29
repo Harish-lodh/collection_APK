@@ -42,7 +42,7 @@ export default function CashReceiptScreen() {
   const [paymentRef, setPaymentRef] = useState('');
   const [collectedBy, setCollectedBy] = useState('');
   const [amount, setAmount] = useState('');
-  const [amountInWords, setAmountInWords] = useState('');
+  const [remark, setremark] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -62,7 +62,7 @@ export default function CashReceiptScreen() {
     loanId: '',
     paymentDate: '',
     amount: '',
-    amountInWords: '',
+    remark: '',
     collectedBy: '',
     paymentMode: '',
     paymentRef: '',
@@ -120,7 +120,7 @@ export default function CashReceiptScreen() {
       loanId: '',
       paymentDate: '',
       amount: '',
-      amountInWords: '',
+      remark: '',
       collectedBy: '',
       paymentMode: '',
       paymentRef: '',
@@ -220,6 +220,7 @@ export default function CashReceiptScreen() {
 
     try {
       const locationCoords = await getCurrentLocation();
+      console.log("location coords",locationCoords)
       if (!locationCoords) {
         setIsLoading(false);
         return;
@@ -245,7 +246,7 @@ export default function CashReceiptScreen() {
       if (paymentRef) form.append('paymentRef', paymentRef);
       if (collectedBy) form.append('collectedBy', collectedBy);
       form.append('amount', String(amount)); // numbers must be strings in multipart
-      if (amountInWords) form.append('amountInWords', amountInWords);
+      if (remark) form.append('remark', remark);
       form.append('latitude', String(locationCoords.latitude));
       form.append('longitude', String(locationCoords.longitude));
 
@@ -286,7 +287,7 @@ export default function CashReceiptScreen() {
             setPaymentRef('');
             setCollectedBy('');
             setAmount('');
-            setAmountInWords('');
+            setremark('');
             setImage(null);
             setPhotoSource(null);
             setPhotoError('');
@@ -298,7 +299,7 @@ export default function CashReceiptScreen() {
               loanId: '',
               paymentDate: '',
               amount: '',
-              amountInWords: '',
+              remark: '',
               collectedBy: '',
               paymentMode: '',
               paymentRef: '',
@@ -542,17 +543,17 @@ export default function CashReceiptScreen() {
 
       {/* Amount in Words */}
       <View style={styles.field}>
-        <Text style={styles.label}>Amount in Words</Text>
+        <Text style={styles.label}>Remarks</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter Amount in Words"
-          value={amountInWords}
+          placeholder="Enter Remarks"
+          value={remark}
           onChangeText={(text) => {
-            setAmountInWords(text);
-            setErrors((prev) => ({ ...prev, amountInWords: '' }));
+            setremark(text);
+            setErrors((prev) => ({ ...prev, remark: '' }));
           }}
         />
-        {errors.amountInWords ? <Text style={styles.errorText}>{errors.amountInWords}</Text> : null}
+        {errors.remark ? <Text style={styles.errorText}>{errors.remark}</Text> : null}
       </View>
 
       {/* --- Photo Source (required only for non-cash) --- */}
