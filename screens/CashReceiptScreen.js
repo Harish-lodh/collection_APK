@@ -393,7 +393,7 @@ export default function CashReceiptScreen() {
           value={customerName}
           onChangeText={(text) => {
             setCustomerName(text);
-            debouncedFetch('customerName', text);
+           // debouncedFetch('customerName', text);
             setErrors((prev) => ({ ...prev, customerName: '' }));
           }}
         />
