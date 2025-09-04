@@ -18,6 +18,7 @@ export const fetchAutoData = async (key, value, setters) => {
       const result = res.data.data[0]; // Assuming you're using the first match
       setters.setCustomerName(result.customerName || '');
       setters.setLoanId(result.lan || '');
+      setters.setPartnerLoanId(result.partnerLoanId  || '');
       setters.setContactNumber(result.mobileNumber || '');
       setters.setPanNumber(result.panNumber || '');
     } else {

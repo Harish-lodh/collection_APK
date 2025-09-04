@@ -21,8 +21,8 @@ export default function LoanDetailsScreen() {
   const searchOptions = [
       { label: 'Mobile Number', value: 'mobileNumber' },
     { label: 'PAN Number', value: 'panNumber' },
-     { label: 'Customer Name', value: 'customerName' },
-    { label: 'Loan ID', value: 'loanId' },
+    //  { label: 'Customer Name', value: 'customerName' },
+    { label: 'Partner LoanId', value: 'partnerLoanId' },
   ];
 
   const handleSearch = async () => {
@@ -49,8 +49,12 @@ export default function LoanDetailsScreen() {
         alert('No data found');
       }
     } catch (error) {
+        if (error.response?.status === 404) {
+      alert('No data found');
+    } else {
       console.error('API error:', error);
       alert('Failed to fetch user data.');
+    }
     } finally {
       setIsLoading(false);
     }

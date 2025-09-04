@@ -34,6 +34,8 @@ export default function CashReceiptScreen() {
   const [panNumber, setPanNumber] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [contactNumber, setContactNumber] = useState('');
+    const [partnerLoanId, setPartnerLoanId] = useState('');
+
   const [loanId, setLoanId] = useState('');
   const [paymentDate, setPaymentDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -59,6 +61,7 @@ export default function CashReceiptScreen() {
     customerName: '',
     vehicleNumber: '',
     contactNumber: '',
+    partnerLoanId:'',
     loanId: '',
     paymentDate: '',
     amount: '',
@@ -117,6 +120,7 @@ export default function CashReceiptScreen() {
       customerName: '',
       vehicleNumber: '',
       contactNumber: '',
+      partnerLoanId:'',
       loanId: '',
       paymentDate: '',
       amount: '',
@@ -150,6 +154,10 @@ export default function CashReceiptScreen() {
 
     if (!loanId.trim()) {
       newErrors.loanId = 'Loan ID is required';
+      isValid = false;
+    }
+       if (!partnerLoanId.trim()) {
+      newErrors.loanId = 'PartnerLoan ID is required';
       isValid = false;
     }
     if (!paymentDate) {
@@ -237,6 +245,7 @@ export default function CashReceiptScreen() {
 
       const form = new FormData();
       form.append('loanId', loanId);
+      form.append('partnerLoanId', partnerLoanId);
       form.append('customerName', customerName);
       form.append('vehicleNumber', vehicleNumber);
       form.append('contactNumber', contactNumber);
@@ -259,7 +268,7 @@ export default function CashReceiptScreen() {
       }
 
       const token = await getAuthToken();
-
+      console.log("backend url",BACKEND_BASE_URL)
       const res = await axios.post(
         `${BACKEND_BASE_URL}/loanDetails/save-loan`,
         form,
@@ -272,7 +281,7 @@ export default function CashReceiptScreen() {
         }
       );
 
-      Alert.alert('Success', 'Loan details saved successfully!', [
+      Alert.alert('Success', '✅Loan details saved successfully!', [
         {
           text: 'OK',
           onPress: () => {
@@ -281,6 +290,7 @@ export default function CashReceiptScreen() {
             setCustomerName('');
             setVehicleNumber('');
             setContactNumber('');
+            setPartnerLoanId('');
             setLoanId('');
             setPaymentDate(null);
             setSelectedValue(null);
@@ -296,6 +306,7 @@ export default function CashReceiptScreen() {
               customerName: '',
               vehicleNumber: '',
               contactNumber: '',
+              partnerLoanId:'',
               loanId: '',
               paymentDate: '',
               amount: '',
@@ -344,6 +355,7 @@ export default function CashReceiptScreen() {
               debouncedFetch('phoneNumber', text, {
                 setCustomerName,
                 setLoanId,
+                setPartnerLoanId,
                 setContactNumber,
                 setPanNumber,
               });
@@ -372,6 +384,7 @@ export default function CashReceiptScreen() {
               debouncedFetch('panNumber', t, {
                 setCustomerName,
                 setLoanId,
+                setPartnerLoanId,
                 setContactNumber,
                 setPanNumber,
               });
@@ -417,7 +430,21 @@ export default function CashReceiptScreen() {
         />
         {errors.vehicleNumber ? <Text style={styles.errorText}>{errors.vehicleNumber}</Text> : null}
       </View>
-
+  <View style={styles.field}>
+        <Text style={styles.label}>
+          PartnerLoan ID <Text style={styles.req}>*</Text>
+        </Text>
+        <TextInput
+          style={styles.input}
+        placeholder="Enter PartnerLoan ID"
+          value={partnerLoanId}
+          onChangeText={(text) => {
+            setPartnerLoanId(text);
+            setErrors((prev) => ({ ...prev, partnerLoanId: '' }));
+          }}
+        />
+        {errors.partnerLoanId ? <Text style={styles.errorText}>{errors.partnerLoanId}</Text> : null}
+      </View>
       {/* Loan ID */}
       <View style={styles.field}>
         <Text style={styles.label}>
@@ -488,7 +515,7 @@ export default function CashReceiptScreen() {
       {/* Payment Ref (conditional asterisk) */}
       <View style={styles.field}>
         <Text style={styles.label}>
-          Cash/Cheque/UPI Ref. No. {isNonCash ? <Text style={styles.req}>*</Text> : null}
+          Cheque/UPI Ref. No. {isNonCash ? <Text style={styles.req}>*</Text> : null}
         </Text>
         <TextInput
           style={styles.input}
