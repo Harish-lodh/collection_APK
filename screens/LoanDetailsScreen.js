@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
+
   TextInput,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { BACKEND_BASE_URL } from '@env';
 import Button from '../components/Button';
+import styles  from '../utils/style';
 import axios from 'axios';
 import { Dropdown } from 'react-native-element-dropdown';
 
@@ -116,47 +117,4 @@ export default function LoanDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 16 },
-  field: { marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '500', marginBottom: 6, color: '#333' },
-  dropdown: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    backgroundColor: '#fff',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  table: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 10,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 0.5,
-    borderColor: '#ccc',
-  },
-  cellLabel: {
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  cellValue: {
-    textAlign: 'right',
-    color: '#555',
-    flex: 1,
-  },
-});
+

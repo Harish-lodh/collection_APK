@@ -1,5 +1,7 @@
 import {launchImageLibrary, launchCamera} from 'react-native-image-picker';
-
+import { getAuthToken } from '../components/authToken';
+import { BACKEND_BASE_URL } from '@env';
+import axios from 'axios';
 export const selectFromGallery = async () => {
   try {
     const res = await launchImageLibrary({ mediaType: 'photo', quality: 0.7 });
@@ -29,3 +31,34 @@ export const captureFromCamera = async () => {
     return null;
   }
 };
+
+export async function fetchPendingCashPayments(collectedBy) {
+  const token = await getAuthToken();
+  const url = `${BACKEND_BASE_URL}/loanDetails/pending-cash-payments${
+    collectedBy ? `?collectedBy=${encodeURIComponent(collectedBy)}` : ''
+  }`;
+  console.log(url);
+  const { data } = await axios.get(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return data?.data || [];
+}
+
+export async function uploadPaymentImage2(paymentId, asset) {
+  const token = await getAuthToken();
+  const name = asset.fileName || `image2_${paymentId}.jpg`;
+  const type =
+    asset.type || (name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
+
+  const form = new FormData();
+  form.append('image2', { uri: asset.uri, name, type });
+
+  await axios.post(`${BACKEND_BASE_URL}/loanDetails/payments/${paymentId}/image2`, form, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+}
+
+

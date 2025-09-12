@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   ScrollView,
   Pressable,
@@ -11,6 +10,8 @@ import {
   Image,
   Alert,
 } from 'react-native';
+import styles from '../utils/style.js'
+import { StyleSheet } from 'react-native';
 
 import debounce from 'lodash.debounce';
 
@@ -29,12 +30,13 @@ import { fetchAutoData } from '../utils/autofetch.js';
 
 export default function CashReceiptScreen() {
   const [location, setLocation] = useState(null);
+  const [users, setUsers] = useState([]);  // list of names
 
   const [customerName, setCustomerName] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-    const [partnerLoanId, setPartnerLoanId] = useState('');
+  const [partnerLoanId, setPartnerLoanId] = useState('');
 
   const [loanId, setLoanId] = useState('');
   const [paymentDate, setPaymentDate] = useState(null);
@@ -61,7 +63,7 @@ export default function CashReceiptScreen() {
     customerName: '',
     vehicleNumber: '',
     contactNumber: '',
-    partnerLoanId:'',
+    partnerLoanId: '',
     loanId: '',
     paymentDate: '',
     amount: '',
@@ -97,7 +99,7 @@ export default function CashReceiptScreen() {
   const onSelectFromGallery = async () => {
     const asset = await selectFromGallery();
     if (asset) {
-  console.log(asset)
+      console.log(asset)
       setImage(asset);
       setPhotoError('');
       setErrors((p) => ({ ...p, image: '' }));
@@ -120,7 +122,7 @@ export default function CashReceiptScreen() {
       customerName: '',
       vehicleNumber: '',
       contactNumber: '',
-      partnerLoanId:'',
+      partnerLoanId: '',
       loanId: '',
       paymentDate: '',
       amount: '',
@@ -156,7 +158,7 @@ export default function CashReceiptScreen() {
       newErrors.loanId = 'Loan ID is required';
       isValid = false;
     }
-       if (!partnerLoanId.trim()) {
+    if (!partnerLoanId.trim()) {
       newErrors.loanId = 'PartnerLoan ID is required';
       isValid = false;
     }
@@ -192,10 +194,10 @@ export default function CashReceiptScreen() {
       //   isValid = false;
       // }
     }
-         if (!image?.uri) {
-        newErrors.image = 'Receipt photo is required for UPI/Cheque/cash';
-        isValid = false;
-      }
+    if (!image?.uri) {
+      newErrors.image = 'Receipt photo is required for UPI/Cheque/cash';
+      isValid = false;
+    }
 
     setErrors(newErrors);
     return isValid;
@@ -209,6 +211,25 @@ export default function CashReceiptScreen() {
 
   useEffect(() => {
     // cleanup debounce on unmount
+    const fetchUser = async () => {
+      try {
+        const token = await getAuthToken();
+        const res = await axios.get(`${BACKEND_BASE_URL}/getUser`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const formatted = res.data.map(u => ({
+          label: u.name,
+          value: u.name,
+        })
+
+        );
+        setUsers(formatted)
+      } catch (error) {
+        console.log(error.message);
+        console.error('Error fetching users:', error);
+      }
+    }
+    fetchUser();
     return () => debouncedFetch.cancel();
   }, []);
 
@@ -228,7 +249,7 @@ export default function CashReceiptScreen() {
 
     try {
       const locationCoords = await getCurrentLocation();
-      console.log("location coords",locationCoords)
+      console.log("location coords", locationCoords)
       if (!locationCoords) {
         setIsLoading(false);
         return;
@@ -268,7 +289,7 @@ export default function CashReceiptScreen() {
       }
 
       const token = await getAuthToken();
-      console.log("backend url",BACKEND_BASE_URL)
+      console.log("backend url", BACKEND_BASE_URL)
       const res = await axios.post(
         `${BACKEND_BASE_URL}/loanDetails/save-loan`,
         form,
@@ -281,7 +302,7 @@ export default function CashReceiptScreen() {
         }
       );
 
-      Alert.alert('Success', '✅Loan details saved successfully!', [
+      Alert.alert('Success', '✅receipt has been uploaded successfully!', [
         {
           text: 'OK',
           onPress: () => {
@@ -306,7 +327,7 @@ export default function CashReceiptScreen() {
               customerName: '',
               vehicleNumber: '',
               contactNumber: '',
-              partnerLoanId:'',
+              partnerLoanId: '',
               loanId: '',
               paymentDate: '',
               amount: '',
@@ -335,6 +356,8 @@ export default function CashReceiptScreen() {
       setIsLoading(false);
     }
   };
+
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -406,7 +429,7 @@ export default function CashReceiptScreen() {
           value={customerName}
           onChangeText={(text) => {
             setCustomerName(text);
-           // debouncedFetch('customerName', text);
+            // debouncedFetch('customerName', text);
             setErrors((prev) => ({ ...prev, customerName: '' }));
           }}
         />
@@ -430,13 +453,13 @@ export default function CashReceiptScreen() {
         />
         {errors.vehicleNumber ? <Text style={styles.errorText}>{errors.vehicleNumber}</Text> : null}
       </View>
-  <View style={styles.field}>
+      <View style={styles.field}>
         <Text style={styles.label}>
           PartnerLoan ID <Text style={styles.req}>*</Text>
         </Text>
         <TextInput
           style={styles.input}
-        placeholder="Enter PartnerLoan ID"
+          placeholder="Enter PartnerLoan ID"
           value={partnerLoanId}
           onChangeText={(text) => {
             setPartnerLoanId(text);
@@ -534,21 +557,24 @@ export default function CashReceiptScreen() {
       </View>
 
       {/* Collected By */}
-      <View style={styles.field}>
-        <Text style={styles.label}>
-          Payment Collected By <Text style={styles.req}>*</Text>
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter RM Name"
-          value={collectedBy}
-          onChangeText={(t) => {
-            setCollectedBy(t);
-            if (t) setErrors((p) => ({ ...p, collectedBy: '' }));
-          }}
-        />
-        {errors.collectedBy ? <Text style={styles.errorText}>{errors.collectedBy}</Text> : null}
-      </View>
+ <View style={styles.field}>
+  <Text style={styles.label}>
+    Payment Collected By <Text style={styles.req}>*</Text>
+  </Text>
+  <Dropdown
+    style={styles.dropdown}
+    data={users}
+    labelField="label"
+    valueField="value"
+    placeholder="Select collector"
+    value={collectedBy}
+    onChange={item => {
+      setCollectedBy(item.value);
+      setErrors(prev => ({ ...prev, collectedBy: '' }));
+    }}
+  />
+  {errors.collectedBy ? <Text style={styles.errorText}>{errors.collectedBy}</Text> : null}
+</View>
 
       {/* Amount */}
       <View style={styles.field}>
@@ -692,94 +718,94 @@ export default function CashReceiptScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
-  field: { marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '500', marginBottom: 6, color: '#333' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  inputRow: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  valueText: { fontSize: 16, color: '#111' },
-  placeholder: { color: '#888' },
-  errorText: { color: 'red', fontSize: 12, marginTop: 4 },
-  row: { flexDirection: 'row', gap: 12 },
-  half: { flex: 1 },
-  helper: { color: '#666', marginTop: 12 },
-  dropdown: {
-    height: 50,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-  },
-  loaderContainer: { marginTop: 16, alignItems: 'center' },
+// const styles = StyleSheet.create({
+//   container: { padding: 16, gap: 12 },
+//   title: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
+//   field: { marginBottom: 12 },
+//   label: { fontSize: 14, fontWeight: '500', marginBottom: 6, color: '#333' },
+//   input: {
+//     borderWidth: 1,
+//     borderColor: '#ddd',
+//     borderRadius: 10,
+//     padding: 12,
+//     fontSize: 16,
+//     backgroundColor: '#fff',
+//   },
+//   inputRow: {
+//     height: 48,
+//     borderWidth: 1,
+//     borderColor: '#ddd',
+//     borderRadius: 10,
+//     paddingHorizontal: 12,
+//     backgroundColor: '#fff',
+//     alignItems: 'center',
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//   },
+//   valueText: { fontSize: 16, color: '#111' },
+//   placeholder: { color: '#888' },
+//   errorText: { color: 'red', fontSize: 12, marginTop: 4 },
+//   row: { flexDirection: 'row', gap: 12 },
+//   half: { flex: 1 },
+//   helper: { color: '#666', marginTop: 12 },
+//   dropdown: {
+//     height: 50,
+//     borderColor: '#ddd',
+//     borderWidth: 1,
+//     borderRadius: 10,
+//     paddingHorizontal: 12,
+//     backgroundColor: '#fff',
+//   },
+//   loaderContainer: { marginTop: 16, alignItems: 'center' },
 
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  req: { color: '#e5484d' },
-  hint: { fontSize: 12, color: '#888' },
-  hintOk: { fontSize: 12, color: '#0a7' },
+//   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+//   req: { color: '#e5484d' },
+//   hint: { fontSize: 12, color: '#888' },
+//   hintOk: { fontSize: 12, color: '#0a7' },
 
-  segmentRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  segment: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fafafa',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  segmentActive: {
-    borderColor: '#0a7',
-    backgroundColor: '#eafff5',
-  },
-  segmentEmoji: { fontSize: 18, opacity: 0.7 },
-  segmentEmojiActive: { opacity: 1 },
-  segmentTitle: { color: '#333', fontWeight: '700' },
-  segmentTitleActive: { color: '#0a7' },
-  segmentSub: { color: '#666', fontSize: 12 },
-  tick: { fontWeight: '900', fontSize: 14, color: '#0a7' },
+//   segmentRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+//   segment: {
+//     flex: 1,
+//     paddingVertical: 12,
+//     paddingHorizontal: 12,
+//     borderRadius: 12,
+//     borderWidth: 1,
+//     borderColor: '#ddd',
+//     backgroundColor: '#fafafa',
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 10,
+//   },
+//   segmentActive: {
+//     borderColor: '#0a7',
+//     backgroundColor: '#eafff5',
+//   },
+//   segmentEmoji: { fontSize: 18, opacity: 0.7 },
+//   segmentEmojiActive: { opacity: 1 },
+//   segmentTitle: { color: '#333', fontWeight: '700' },
+//   segmentTitleActive: { color: '#0a7' },
+//   segmentSub: { color: '#666', fontSize: 12 },
+//   tick: { fontWeight: '900', fontSize: 14, color: '#0a7' },
 
-  primaryBtn: {
-    marginTop: 6,
-    backgroundColor: '#0a7',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+//   primaryBtn: {
+//     marginTop: 6,
+//     backgroundColor: '#0a7',
+//     paddingVertical: 12,
+//     borderRadius: 12,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//   },
+//   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  closePill: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  closeText: { color: '#fff', fontSize: 16, lineHeight: 16, fontWeight: '700' },
-  previewCaption: { marginTop: 6, fontSize: 12, color: '#666' },
-});
+//   closePill: {
+//     position: 'absolute',
+//     top: 6,
+//     right: 6,
+//     backgroundColor: 'rgba(0,0,0,0.6)',
+//     borderRadius: 999,
+//     paddingHorizontal: 10,
+//     paddingVertical: 4,
+//   },
+//   closeText: { color: '#fff', fontSize: 16, lineHeight: 16, fontWeight: '700' },
+//   previewCaption: { marginTop: 6, fontSize: 12, color: '#666' },
+// });
