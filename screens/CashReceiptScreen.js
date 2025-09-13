@@ -454,7 +454,7 @@ export default function CashReceiptScreen() {
       </View>
       <View style={styles.field}>
         <Text style={styles.label}>
-          Partne Loan ID <Text style={styles.req}>*</Text>
+          Partner Loan ID <Text style={styles.req}>*</Text>
         </Text>
         <TextInput
           style={styles.input}
