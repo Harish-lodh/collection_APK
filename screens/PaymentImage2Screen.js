@@ -58,7 +58,7 @@ export default function PaymentImage2Screen() {
     try {
       setSubmitting(true);
       await uploadPaymentImage2(payment.id, image2);
-      Alert.alert('Success', 'receipt generated successfully', [
+      Alert.alert('Success', 'Receipt Submitted Successfully!', [
         {
           text: 'OK',
           onPress: () => navigation.goBack(), // go back to list (it shows one less item after refresh)

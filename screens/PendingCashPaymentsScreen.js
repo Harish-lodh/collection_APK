@@ -6,11 +6,11 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   TextInput,
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { fetchPendingCashPayments } from '../utils/index.js';

@@ -120,7 +120,6 @@ export default function CashReceiptScreen() {
     const newErrors = {
       panNumber: '',
       customerName: '',
-      vehicleNumber: '',
       contactNumber: '',
       partnerLoanId: '',
       loanId: '',
@@ -141,10 +140,10 @@ export default function CashReceiptScreen() {
       newErrors.customerName = 'Customer Name is required';
       isValid = false;
     }
-    if (!vehicleNumber.trim()) {
-      newErrors.vehicleNumber = 'Vehicle Number is required';
-      isValid = false;
-    }
+    // if (!vehicleNumber.trim()) {
+    //   newErrors.vehicleNumber = 'Vehicle Number is required';
+    //   isValid = false;
+    // }
 
     if (!contactNumber.trim()) {
       newErrors.contactNumber = 'Contact Number is required';
@@ -302,7 +301,7 @@ export default function CashReceiptScreen() {
         }
       );
 
-      Alert.alert('Success', '✅receipt has been uploaded successfully!', [
+      Alert.alert('Success', '✅Receipt Submitted Successfully!', [
         {
           text: 'OK',
           onPress: () => {
@@ -439,7 +438,7 @@ export default function CashReceiptScreen() {
       {/* Vehicle No */}
       <View style={styles.field}>
         <Text style={styles.label}>
-          Vehicle Number <Text style={styles.req}>*</Text>
+          Vehicle Number 
         </Text>
         <TextInput
           style={styles.input}
@@ -455,7 +454,7 @@ export default function CashReceiptScreen() {
       </View>
       <View style={styles.field}>
         <Text style={styles.label}>
-          PartnerLoan ID <Text style={styles.req}>*</Text>
+          Partne Loan ID <Text style={styles.req}>*</Text>
         </Text>
         <TextInput
           style={styles.input}
@@ -557,24 +556,24 @@ export default function CashReceiptScreen() {
       </View>
 
       {/* Collected By */}
- <View style={styles.field}>
-  <Text style={styles.label}>
-    Payment Collected By <Text style={styles.req}>*</Text>
-  </Text>
-  <Dropdown
-    style={styles.dropdown}
-    data={users}
-    labelField="label"
-    valueField="value"
-    placeholder="Select collector"
-    value={collectedBy}
-    onChange={item => {
-      setCollectedBy(item.value);
-      setErrors(prev => ({ ...prev, collectedBy: '' }));
-    }}
-  />
-  {errors.collectedBy ? <Text style={styles.errorText}>{errors.collectedBy}</Text> : null}
-</View>
+      <View style={styles.field}>
+        <Text style={styles.label}>
+          Payment Collected By <Text style={styles.req}>*</Text>
+        </Text>
+        <Dropdown
+          style={styles.dropdown}
+          data={users}
+          labelField="label"
+          valueField="value"
+          placeholder="Select collector"
+          value={collectedBy}
+          onChange={item => {
+            setCollectedBy(item.value);
+            setErrors(prev => ({ ...prev, collectedBy: '' }));
+          }}
+        />
+        {errors.collectedBy ? <Text style={styles.errorText}>{errors.collectedBy}</Text> : null}
+      </View>
 
       {/* Amount */}
       <View style={styles.field}>
