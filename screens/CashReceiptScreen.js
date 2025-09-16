@@ -707,7 +707,7 @@ export default function CashReceiptScreen() {
       </View>
 
       {/* Submit */}
-      <Button label={isLoading ? 'Saving...' : 'Save Loan'} onPress={handleSave} disabled={isLoading} />
+      <Button label={isLoading ? 'Saving...' : 'Submit'} onPress={handleSave} disabled={isLoading} />
       {isLoading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#007AFF" />

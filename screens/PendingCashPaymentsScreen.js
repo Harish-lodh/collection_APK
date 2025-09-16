@@ -138,7 +138,7 @@ export default function PendingCashPaymentsScreen() {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <Text style={s.title}>Pending Cash Receipts</Text>
+        <Text style={s.title}>Cash Receipts to be deposited in bank</Text>
         <Text style={s.subtitle}>Receipts pending for cash collection!</Text>
       </View>
 
@@ -177,7 +177,7 @@ export default function PendingCashPaymentsScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F6F7FB' },
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  title: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  title: { fontSize: 20, fontWeight: '700', color: '#111827',marginVertical:8 },
   subtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
   searchWrap: { paddingHorizontal: 16, paddingVertical: 8 },
   search: {

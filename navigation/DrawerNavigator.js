@@ -37,6 +37,7 @@ import PendingCashPaymentsScreen from '../screens/PendingCashPaymentsScreen';
 import CashReceiptScreen from "../screens/CashReceiptScreen";
 import HomeScreen from "../screens/HomeScreen";
 import CustomDrawer from "./CustomDrawer";
+import RepossessionScreen from "../screens/RepossessionScreen";
 
 const Drawer = createDrawerNavigator();
 
@@ -48,10 +49,10 @@ export default function DrawerNavigator() {
       screenOptions={{ headerTitleAlign: "center", drawerType: "front" }}
     >
       <Drawer.Screen name="Home" component={HomeScreen} />
-      <Drawer.Screen name="CashReceipt" component={CashReceiptScreen} options={{ title: "Cash Receipt" }} />
+      <Drawer.Screen name="CashReceipt" component={CashReceiptScreen} options={{ title: "Receipt" }} />
       <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} />
       <Drawer.Screen name="Pending Cash Receipt" component={PendingCashPaymentsScreen} />
-      {/* <Drawer.Screen name="PaymentImage2" component={PaymentImage2Screen} /> */}
+      <Drawer.Screen name="Repossession" component={RepossessionScreen} options={{ title: 'Vehicle Repossession' }} />
 
     </Drawer.Navigator>
   );

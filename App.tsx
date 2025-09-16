@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import PaymentImage2Screen from './screens/PaymentImage2Screen.js'
 import LoginScreen from "./screens/LoginScreen.js";
 import DrawerNavigator from "./navigation/DrawerNavigator.js";
+import RepossessionScreen  from './screens/RepossessionScreen.js'
 
 const Stack = createStackNavigator();
 
@@ -57,6 +58,7 @@ export default function App() {
             component={PaymentImage2Screen}
             options={{ headerShown: true, title: 'Pending receipt' }}
           />
+
         </Stack.Navigator>
 
       </NavigationContainer>
