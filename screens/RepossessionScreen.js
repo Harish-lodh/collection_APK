@@ -1,9 +1,8 @@
 // src/screens/RepossessionScreen.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect, Suspense, lazy } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   ScrollView,
   Pressable,
@@ -11,50 +10,41 @@ import {
   Image,
   Alert,
   Platform,
-  SafeAreaView,
+  Keyboard,
 } from 'react-native';
 import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import styles from '../utils/RepoStyle';
 
 import { getAuthToken } from '../components/authToken';
 import { getCurrentLocation } from '../components/function';
 import { BACKEND_BASE_URL } from '@env';
 
-// Default PRE slots (tap to add photo)
-const PHOTO_SLOTS = ['Front', 'Rear', 'Left', 'Right', 'Interior', 'Damages'];
+// utils
+import {
+  REPO_REASONS, VEHICLE_CONDITION, PLACES,
+  MIN_REQUIRED_PHOTOS, MAX_ALLOWED_PHOTOS,
+  PAN_REGEX, PHONE_REGEX, MIN_PARTNER_ID_LENGTH,
+  detectType, photoCount as countPhotos, canAddMore,
+  useDebouncedCallback, buildRepoFormData, createResetForm
+} from '../utils/index';
 
-const REPO_REASONS = [
-  { label: 'NPA', value: 'NPA' },
-  { label: 'Default > 90 days', value: 'DEFAULT_90' },
-  { label: 'Skip Trace Result', value: 'SKIP_TRACE' },
-];
+const LabeledPhotoTile = lazy(() => import('../components/LabeledPhotoTile'));
 
-const VEHICLE_CONDITION = [
-  { label: 'Good', value: 'GOOD' },
-  { label: 'Damaged', value: 'DAMAGED' },
-  { label: 'Modified', value: 'MODIFIED' },
-];
-
-const PLACES = [
-  { label: 'Roadside', value: 'ROADSIDE' },
-  { label: 'Residence', value: 'RESIDENCE' },
-  { label: 'Workplace', value: 'WORKPLACE' },
-  { label: 'Other', value: 'OTHER' },
-];
-
-const MIN_REQUIRED_PHOTOS = 3;
-const MAX_ALLOWED_PHOTOS = 10;
-
-export default function RepossessionScreen({ navigation }) {
+export default function RepossessionScreen() {
   const [submitting, setSubmitting] = useState(false);
+  const [autoFetching, setAutoFetching] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   // Search fields
   const [mobile, setMobile] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [partnerLoanId, setPartnerLoanId] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
+  const [customerName, setCustomerName] = useState('');
 
   // Vehicle info
   const [makeModel, setMakeModel] = useState('');
@@ -82,18 +72,22 @@ export default function RepossessionScreen({ navigation }) {
   const [yardIncharge, setYardIncharge] = useState('');
   const [yardContact, setYardContact] = useState('');
   const [yardReceipt, setYardReceipt] = useState('');
-  const [passportNo, setPassportNo] = useState('');
+  const [postRemarks, setPostRemarks] = useState('');
 
-  // GPS (we only send if valid)
+  // GPS
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
 
   // Photos: { [id]: { uri, type, fileName, label } }
   const [photos, setPhotos] = useState({});
 
-  // -------- helpers --------
-  const photoCount = () => Object.values(photos).filter((f) => !!f?.uri).length;
-  const canAddMore = () => photoCount() < MAX_ALLOWED_PHOTOS;
+  // refs
+  const scrollRef = useRef(null);
+  const lastFetchRef = useRef({ phone: '', pan: '', pli: '' });
+
+  // helpers
+  const photoCount = () => countPhotos(photos);
+  const canAdd = () => canAddMore(photos);
 
   const captureLocation = async () => {
     try {
@@ -101,11 +95,10 @@ export default function RepossessionScreen({ navigation }) {
       const lat = loc?.latitude ?? loc?.coords?.latitude;
       const lon = loc?.longitude ?? loc?.coords?.longitude;
       if (typeof lat === 'number' && typeof lon === 'number') {
-        setLatitude(lat);
-        setLongitude(lon);
+        setLatitude(lat); setLongitude(lon);
         return true;
       }
-    } catch { /* ignore UI toast below if needed */ }
+    } catch {}
     return false;
   };
 
@@ -129,11 +122,11 @@ export default function RepossessionScreen({ navigation }) {
             uri: a.uri,
             type: a.type || 'image/jpeg',
             fileName: a.fileName || `${id}.jpg`,
-            label: p[id]?.label ?? (PHOTO_SLOTS.includes(id) ? id : ''),
+            label: p[id]?.label ?? '',
           },
         }));
       }
-    } catch { /* no-op */ }
+    } catch {}
   };
 
   const pickPhoto = async (id) => {
@@ -148,11 +141,11 @@ export default function RepossessionScreen({ navigation }) {
             uri: a.uri,
             type: a.type || 'image/jpeg',
             fileName: a.fileName || `${id}.jpg`,
-            label: p[id]?.label ?? (PHOTO_SLOTS.includes(id) ? id : ''),
+            label: p[id]?.label ?? '',
           },
         }));
       }
-    } catch { /* no-op */ }
+    } catch {}
   };
 
   const handleDateChange = (_e, selectedDate) => {
@@ -181,9 +174,14 @@ export default function RepossessionScreen({ navigation }) {
     if (!repoPlace) errors.push('Select place of repossession');
     if (!vehicleCondition) errors.push('Select vehicle condition');
 
-    const count = photoCount();
-    if (count < MIN_REQUIRED_PHOTOS) errors.push(`At least ${MIN_REQUIRED_PHOTOS} photos required`);
-    if (count > MAX_ALLOWED_PHOTOS) errors.push(`Max ${MAX_ALLOWED_PHOTOS} photos allowed`);
+    const preCount = Object.entries(photos).filter(([id, f]) => detectType(id) === 'PRE' && f?.uri).length;
+    const postCount = Object.entries(photos).filter(([id, f]) => detectType(id) === 'POST' && f?.uri).length;
+
+    if (preCount < MIN_REQUIRED_PHOTOS) errors.push(`At least ${MIN_REQUIRED_PHOTOS} Pre-Repossession photos are required`);
+    if (postCount < 2) errors.push('At least 2 Post-Repossession photos are required');
+
+    const unlabeled = Object.entries(photos).filter(([_, f]) => f?.uri && !f?.label?.trim());
+    if (unlabeled.length) errors.push('Please provide labels for all uploaded photos');
 
     if (errors.length) {
       Alert.alert('Missing info', errors.join('\n'));
@@ -192,73 +190,37 @@ export default function RepossessionScreen({ navigation }) {
     return true;
   };
 
-  const detectType = (id) => {
-    if (id.startsWith('post_')) return 'POST';
-    if (id.startsWith('pre_')) return 'PRE';
-    if (PHOTO_SLOTS.includes(id)) return 'PRE';
-    return 'PRE';
-  };
+  // reset form (from utils)
+  const resetForm = createResetForm({
+    Keyboard,
+    lastFetchRef,
+    scrollRef,
+    setters: {
+      setMobile, setPanNumber, setPartnerLoanId, setVehicleNumber, setCustomerName,
+      setMakeModel, setRegNo, setChassisNo, setEngineNo, setBatteryNo,
+      setRepoDate, setShowDatePicker, setShowTimePicker, setRepoReason, setAgency, setFieldOfficer,
+      setRepoPlace, setVehicleCondition, setInventory, setRemarks,
+      setYardLocation, setYardIncharge, setYardContact, setYardReceipt, setPostRemarks,
+      setLatitude, setLongitude, setPhotos, setEditingId, setAutoFetching,
+    },
+  });
 
   const handleSubmit = async () => {
     if (!validateBasics()) return;
-
     setSubmitting(true);
     try {
-      // best-effort GPS (frontend-only change; backend untouched)
       await captureLocation();
-
       const token = await getAuthToken();
-      const fd = new FormData();
 
-      // Basic refs
-      if (mobile) fd.append('mobile', mobile);
-      if (panNumber) fd.append('panNumber', panNumber);
-      if (partnerLoanId) fd.append('partnerLoanId', partnerLoanId);
-      if (vehicleNumber) fd.append('vehicleNumber', vehicleNumber);
-
-      // Vehicle info
-      if (makeModel) fd.append('makeModel', makeModel);
-      if (regNo) fd.append('regNo', regNo);
-      if (chassisNo) fd.append('chassisNo', chassisNo);
-      if (engineNo) fd.append('engineNo', engineNo);
-      if (batteryNo) fd.append('batteryNo', batteryNo);
-
-      // Repo meta
-      const iso = Number.isFinite(repoDate?.getTime?.()) ? repoDate.toISOString() : '';
-      fd.append('repoDate', iso);
-      if (repoReason) fd.append('repoReason', repoReason);
-      if (agency) fd.append('agency', agency);
-      if (fieldOfficer) fd.append('fieldOfficer', fieldOfficer);
-      if (repoPlace) fd.append('repoPlace', repoPlace);
-      if (vehicleCondition) fd.append('vehicleCondition', vehicleCondition);
-      if (inventory) fd.append('inventory', inventory);
-      if (remarks) fd.append('remarks', remarks);
-
-      // Post-repo details
-      if (yardLocation) fd.append('yardLocation', yardLocation);
-      if (yardIncharge) fd.append('yardIncharge', yardIncharge);
-      if (yardContact) fd.append('yardContact', yardContact);
-      if (yardReceipt) fd.append('yardReceipt', yardReceipt);
-      if (passportNo) fd.append('passportNo', passportNo);
-
-      // Location — append ONLY if valid (prevents NaN at DB)
-      if (typeof latitude === 'number' && Number.isFinite(latitude)) {
-        fd.append('latitude', String(latitude));
-      }
-      if (typeof longitude === 'number' && Number.isFinite(longitude)) {
-        fd.append('longitude', String(longitude));
-      }
-
-      // Photos (parallel arrays expected by your backend)
-      const entries = Object.entries(photos).filter(([, f]) => !!f?.uri);
-      entries.forEach(([id, file]) => {
-        fd.append('photos', {
-          uri: file.uri,
-          name: file.fileName || `${file.label || id}.jpg`,
-          type: file.type || 'image/jpeg',
-        });
-        fd.append('photoTypes[]', detectType(id));    // PRE | POST
-        fd.append('photoLabels[]', file.label || id); // human label
+      const fd = buildRepoFormData({
+        base: {
+          mobile, panNumber, partnerLoanId, vehicleNumber, customerName,
+        },
+        vehicle: { makeModel, regNo, chassisNo, engineNo, batteryNo },
+        meta: { repoDate, repoReason, agency, fieldOfficer, repoPlace, vehicleCondition, inventory, remarks },
+        post: { yardLocation, yardIncharge, yardContact, yardReceipt, postRemarks },
+        coords: { latitude, longitude },
+        photos,
       });
 
       await axios.post(`${BACKEND_BASE_URL}/repossession`, fd, {
@@ -266,119 +228,149 @@ export default function RepossessionScreen({ navigation }) {
       });
 
       Alert.alert('Success', 'Repossession details submitted.');
-      navigation?.goBack?.();
+      resetForm(); // stay on page, clear form
     } catch (e) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.message ||
-        (typeof e?.message === 'string' ? e.message : 'Failed to submit');
+      const msg = e?.response?.data?.error || e?.response?.data?.message || (typeof e?.message === 'string' ? e.message : 'Failed to submit');
       Alert.alert('Error', String(msg));
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ---------- UI helpers ----------
-  const LabeledPhotoTile = ({ id, file }) => {
-    const hasImage = !!file?.uri;
-    const typeChip = detectType(id);
+  // ------- Auto Fetch -------
+  const [autoFetchBusyKey, setAutoFetchBusyKey] = useState(null); // track which key triggered
 
-    return (
-      <View style={styles.tileWrap}>
-        <Pressable style={styles.photoTile} onPress={() => askPhotoSource(id)}>
-          {hasImage ? (
-            <Image source={{ uri: file.uri }} style={styles.photoImg} />
-          ) : (
-            <Text style={styles.photoPlaceholder}>+ Add</Text>
-          )}
-        </Pressable>
+  const autoFetch = async (params, key) => {
+    if (autoFetching) return;
+    try {
+      setAutoFetching(true);
+      setAutoFetchBusyKey(key || null);
+      const token = await getAuthToken();
 
-        {hasImage ? (
-          <Pressable
-            style={styles.closeBtn}
-            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-            onPress={() =>
-              setPhotos((p) => {
-                const n = { ...p };
-                delete n[id];
-                return n;
-              })
-            }
-          >
-            <Text style={styles.closeBtnText}>×</Text>
-          </Pressable>
-        ) : null}
+      const resp = await axios.get(`${BACKEND_BASE_URL}/embifi/auto-fetch`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
 
-        <TextInput
-          style={styles.labelInput}
-          placeholder="Label (optional)"
-          value={file?.label || ''}
-          onChangeText={(txt) =>
-            setPhotos((p) => ({
-              ...p,
-              [id]: { ...(p[id] || {}), label: txt },
-            }))
-          }
-        />
+      const rows = resp?.data?.data || [];
+      if (!rows.length) return;
 
-        <View style={styles.typeChip}>
-          <Text style={styles.typeChipText}>{typeChip}</Text>
-        </View>
-      </View>
-    );
+      const r = rows[0];
+      setCustomerName(r.customerName || '');
+      setMobile(r.mobileNumber || '');
+      setPanNumber(r.panNumber || '');
+      setPartnerLoanId(r.partnerLoanId || '');
+    } catch {} finally {
+      setAutoFetching(false);
+      setAutoFetchBusyKey(null);
+    }
   };
 
-  // Compose PRE entries: named slots + dynamic pre_*
-  const prePhotoEntries = useMemo(() => {
-    const dynPre = Object.entries(photos).filter(([id]) => id.startsWith('pre_'));
-    const named = PHOTO_SLOTS.map((slot) => [slot, photos[slot] ?? { uri: null, label: slot }]);
-    return [...named, ...dynPre];
-  }, [photos]);
+  const debouncedFetchPhone = useDebouncedCallback((phone) => {
+    if (PHONE_REGEX.test(phone) && lastFetchRef.current.phone !== phone) {
+      lastFetchRef.current.phone = phone;
+      autoFetch({ phoneNumber: phone }, 'phone');
+    }
+  }, 350);
 
+  const debouncedFetchPAN = useDebouncedCallback((panClean) => {
+    if (panClean.length === 10 && PAN_REGEX.test(panClean) && lastFetchRef.current.pan !== panClean) {
+      lastFetchRef.current.pan = panClean;
+      autoFetch({ panNumber: panClean }, 'pan');
+    }
+  }, 350);
+
+  const debouncedFetchPartnerId = useDebouncedCallback((pli) => {
+    const v = (pli || '').trim();
+    if (v.length >= MIN_PARTNER_ID_LENGTH && lastFetchRef.current.pli !== v) {
+      lastFetchRef.current.pli = v;
+      autoFetch({ partnerLoanId: v }, 'pli');
+    }
+  }, 350);
+
+  // PRE / POST entries
+  const prePhotoEntries = useMemo(
+    () => Object.entries(photos).filter(([id]) => id.startsWith('pre_')),
+    [photos]
+  );
   const postPhotoEntries = useMemo(
     () => Object.entries(photos).filter(([id]) => id.startsWith('post_')),
     [photos]
   );
 
   const addPre = () => {
-    if (!canAddMore()) return Alert.alert('Limit', `Max ${MAX_ALLOWED_PHOTOS} photos allowed.`);
+    if (!canAdd()) return Alert.alert('Limit', `Max ${MAX_ALLOWED_PHOTOS} photos allowed.`);
     const id = `pre_${Date.now()}`;
     setPhotos((p) => ({ ...p, [id]: { uri: null, label: '' } }));
     setTimeout(() => askPhotoSource(id), 0);
   };
 
   const addPost = () => {
-    if (!canAddMore()) return Alert.alert('Limit', `Max ${MAX_ALLOWED_PHOTOS} photos allowed.`);
+    if (!canAdd()) return Alert.alert('Limit', `Max ${MAX_ALLOWED_PHOTOS} photos allowed.`);
     const id = `post_${Date.now()}`;
     setPhotos((p) => ({ ...p, [id]: { uri: null, label: '' } }));
     setTimeout(() => askPhotoSource(id), 0);
   };
 
-  const ensureSlotAndPick = (slot) => {
-    if (!canAddMore() && !photos[slot]?.uri) {
-      return Alert.alert('Limit', `Max ${MAX_ALLOWED_PHOTOS} photos allowed.`);
-    }
-    setPhotos((p) => ({ ...p, [slot]: p[slot] || { uri: null, label: slot } }));
-    setTimeout(() => askPhotoSource(slot), 0);
-  };
-
-  // ---------- UI ----------
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+        nestedScrollEnabled
+        removeClippedSubviews={false}
+      >
         <Text style={styles.h1}>Vehicle Repossession</Text>
 
         {/* Basic Search */}
         <View style={styles.card}>
-          <Text style={styles.section}>Search</Text>
+          <Text style={styles.section}>Enter Customer Details</Text>
+
           <Text style={styles.label}>Mobile</Text>
-          <TextInput style={styles.input} value={mobile} onChangeText={setMobile} keyboardType="phone-pad" />
+          <TextInput
+            style={styles.input}
+            value={mobile}
+            onChangeText={(t) => {
+              const digits = t.replace(/[^\d]/g, '').slice(0, 10);
+              setMobile(digits);
+              if (digits.length === 10) debouncedFetchPhone(digits);
+            }}
+            keyboardType="phone-pad"
+            placeholder="10-digit mobile"
+            maxLength={10}
+          />
+          {autoFetchBusyKey === 'phone' && <ActivityIndicator size="small" style={{ marginTop: 6 }} />}
 
           <Text style={styles.label}>PAN</Text>
-          <TextInput style={styles.input} value={panNumber} onChangeText={setPanNumber} autoCapitalize="characters" />
+          <TextInput
+            style={styles.input}
+            value={panNumber}
+            onChangeText={(t) => {
+              const cleaned = t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+              setPanNumber(cleaned);
+              if (cleaned.length === 10) debouncedFetchPAN(cleaned);
+            }}
+            autoCapitalize="characters"
+            placeholder="ABCDE1234F"
+            maxLength={10}
+          />
+          {autoFetchBusyKey === 'pan' && <ActivityIndicator size="small" style={{ marginTop: 6 }} />}
 
           <Text style={styles.label}>Partner Loan ID</Text>
-          <TextInput style={styles.input} value={partnerLoanId} onChangeText={setPartnerLoanId} />
+          <TextInput
+            style={styles.input}
+            value={partnerLoanId}
+            onChangeText={(v) => {
+              setPartnerLoanId(v);
+              if ((v || '').trim().length >= MIN_PARTNER_ID_LENGTH) {
+                debouncedFetchPartnerId(v);
+              }
+            }}
+            placeholder="Partner Loan ID"
+          />
+          {autoFetchBusyKey === 'pli' && <ActivityIndicator size="small" style={{ marginTop: 6 }} />}
 
           <Text style={styles.label}>Vehicle Number</Text>
           <TextInput
@@ -386,6 +378,16 @@ export default function RepossessionScreen({ navigation }) {
             value={vehicleNumber}
             onChangeText={setVehicleNumber}
             autoCapitalize="characters"
+            placeholder="Enter vehicle number"
+          />
+
+          <Text style={styles.label}>Customer Name</Text>
+          <TextInput
+            style={styles.input}
+            value={customerName}
+            onChangeText={setCustomerName}
+            placeholder="Auto-filled"
+            autoCapitalize="words"
           />
         </View>
 
@@ -399,7 +401,7 @@ export default function RepossessionScreen({ navigation }) {
           <TextInput style={styles.input} placeholder="Battery No." value={batteryNo} onChangeText={setBatteryNo} />
         </View>
 
-        {/* Repo Meta */}
+        {/* Repossession Meta */}
         <View style={styles.card}>
           <Text style={styles.section}>Repossession</Text>
 
@@ -468,96 +470,77 @@ export default function RepossessionScreen({ navigation }) {
           <TextInput style={styles.input} value={yardIncharge} onChangeText={setYardIncharge} placeholder="Yard In-charge" />
           <TextInput style={styles.input} value={yardContact} onChangeText={setYardContact} placeholder="Yard Contact" keyboardType="phone-pad" />
           <TextInput style={styles.input} value={yardReceipt} onChangeText={setYardReceipt} placeholder="Yard Receipt No." />
-          <TextInput style={styles.input} value={passportNo} onChangeText={setPassportNo} placeholder="Passport/Seizure Memo No." />
+
+          <Text style={styles.label}>Post-Repossession Remarks</Text>
+          <TextInput
+            style={[styles.input, styles.textarea]}
+            value={postRemarks}
+            onChangeText={setPostRemarks}
+            placeholder="Notes after vehicle moved to yard, inventory at yard, condition, etc."
+            multiline
+          />
         </View>
 
-        {/* Photos: PRE with inline +Add */}
+        {/* Photos */}
         <View style={styles.card}>
           <Text style={styles.section}>Photos ({photoCount()}/{MAX_ALLOWED_PHOTOS})</Text>
 
           <Text style={styles.subsection}>Pre-Repossession</Text>
           <View style={styles.grid3}>
-            {prePhotoEntries.map(([id, file]) => (
-              <View key={id} style={styles.tileWrapper3}>
-                {PHOTO_SLOTS.includes(id) ? (
-                  <View style={styles.tileWrap}>
-                    <Pressable style={styles.photoTile} onPress={() => ensureSlotAndPick(id)}>
-                      {file?.uri ? (
-                        <Image source={{ uri: file.uri }} style={styles.photoImg} />
-                      ) : (
-                        <Text style={styles.photoPlaceholder}>{id}</Text>
-                      )}
-                    </Pressable>
-                    {file?.uri ? (
-                      <Pressable
-                        style={styles.closeBtn}
-                        hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-                        onPress={() =>
-                          setPhotos((p) => {
-                            const n = { ...p };
-                            delete n[id];
-                            return n;
-                          })
-                        }
-                      >
-                        <Text style={styles.closeBtnText}>×</Text>
-                      </Pressable>
-                    ) : null}
-                    <TextInput
-                      style={styles.labelInput}
-                      placeholder="Label (optional)"
-                      value={file?.label || id}
-                      onChangeText={(txt) =>
-                        setPhotos((p) => ({
-                          ...p,
-                          [id]: { ...(p[id] || {}), label: txt, uri: p[id]?.uri ?? null },
-                        }))
-                      }
-                    />
-                    <View style={styles.typeChip}>
-                      <Text style={styles.typeChipText}>PRE</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <LabeledPhotoTile id={id} file={file} />
-                )}
-              </View>
-            ))}
-            {/* inline + Add */}
+            <Suspense fallback={<ActivityIndicator style={{ margin: 10 }} />}>
+              {prePhotoEntries.map(([id, file]) => (
+                <View key={id} style={styles.tileWrapper3}>
+                  <LabeledPhotoTile
+                    id={id}
+                    file={file}
+                    styles={styles}
+                    editingId={editingId}
+                    setEditingId={setEditingId}
+                    askPhotoSource={askPhotoSource}
+                    setPhotos={setPhotos}
+                  />
+                </View>
+              ))}
+            </Suspense>
             <View style={styles.tileWrapper3}>
-              <Pressable
-                style={styles.photoTile}
-                onPress={addPre}
-              >
+              <Pressable style={styles.photoTile} onPress={addPre} disabled={!canAdd()}>
                 <Text style={styles.photoPlaceholder}>+ Add</Text>
               </Pressable>
             </View>
           </View>
 
-          {/* Photos: POST with inline +Add */}
           <Text style={[styles.subsection, { marginTop: 12 }]}>Post-Repossession</Text>
           <View style={styles.grid3}>
-            {postPhotoEntries.map(([id, file]) => (
-              <View key={id} style={styles.tileWrapper3}>
-                <LabeledPhotoTile id={id} file={file} />
-              </View>
-            ))}
+            <Suspense fallback={<ActivityIndicator style={{ margin: 10 }} />}>
+              {postPhotoEntries.map(([id, file]) => (
+                <View key={id} style={styles.tileWrapper3}>
+                  <LabeledPhotoTile
+                    id={id}
+                    file={file}
+                    styles={styles}
+                    editingId={editingId}
+                    setEditingId={setEditingId}
+                    askPhotoSource={askPhotoSource}
+                    setPhotos={setPhotos}
+                  />
+                </View>
+              ))}
+            </Suspense>
             <View style={styles.tileWrapper3}>
-              <Pressable
-                style={styles.photoTile}
-                onPress={addPost}
-              >
+              <Pressable style={styles.photoTile} onPress={addPost} disabled={!canAdd()}>
                 <Text style={styles.photoPlaceholder}>+ Add</Text>
               </Pressable>
             </View>
           </View>
 
-          <Text style={styles.helper}>Minimum {MIN_REQUIRED_PHOTOS} photos required in total.</Text>
+          <Text style={styles.helper}>
+            Minimum {MIN_REQUIRED_PHOTOS} Pre-Repossession photos and 2 Post-Repossession photos are required.
+          </Text>
         </View>
 
         {/* Submit */}
         <Pressable style={[styles.btnPrimary, submitting && { opacity: 0.7 }]} onPress={handleSubmit} disabled={submitting}>
-          {submitting ? <ActivityIndicator /> : <Text style={styles.btnPrimaryText}>Submit</Text>}
+          {submitting ? <ActivityIndicator  size="large" color="#007AFF" /> : <Text style={styles.btnPrimaryText}>Submit</Text>}
         </Pressable>
 
         <View style={{ height: 24 }} />
@@ -566,7 +549,6 @@ export default function RepossessionScreen({ navigation }) {
   );
 }
 
-// small dropdown wrapper
 function AppDropdown({ data, value, onChange, placeholder = 'Select' }) {
   return (
     <Dropdown
@@ -583,134 +565,3 @@ function AppDropdown({ data, value, onChange, placeholder = 'Select' }) {
     />
   );
 }
-
-// -------- styles (simple/light) --------
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f6f8fb' },
-  scrollContent: { padding: 12 },
-  h1: { fontSize: 20, fontWeight: '700', marginBottom: 10, color: '#111' },
-
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e6e9ef',
-  },
-
-  section: { fontSize: 15, fontWeight: '700', marginBottom: 8, color: '#111' },
-  subsection: { fontSize: 13, fontWeight: '700', marginBottom: 8, color: '#333' },
-  label: { color: '#333', marginTop: 8, marginBottom: 4, fontSize: 12 },
-
-  input: {
-    backgroundColor: '#fff',
-    borderColor: '#d7ddea',
-    borderWidth: 1,
-    borderRadius: 8,
-    color: '#111',
-    paddingHorizontal: 10,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 9,
-    fontSize: 14,
-  },
-  textarea: { minHeight: 80, textAlignVertical: 'top' },
-
-  row: { flexDirection: 'row', alignItems: 'center' },
-  btn: {
-    backgroundColor: '#eef2ff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#d6dcff',
-  },
-  btnText: { color: '#1f35c5', fontWeight: '600', fontSize: 12 },
-  dateText: { color: '#333', marginLeft: 10, fontSize: 12 },
-
-  helper: { color: '#666', fontSize: 12, marginTop: 8 },
-
-  // 3-column grid
-  grid3: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
-  },
-  tileWrapper3: {
-    width: '33.3333%',
-    paddingHorizontal: 6,
-    marginBottom: 12,
-  },
-
-  tileWrap: { position: 'relative' },
-  photoTile: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: 10,
-    backgroundColor: '#f2f4f9',
-    borderWidth: 1,
-    borderColor: '#e0e5f2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  photoImg: { width: '100%', height: '100%' },
-  photoPlaceholder: { color: '#5b6aa1', fontSize: 12, textAlign: 'center', paddingHorizontal: 6 },
-
-  closeBtn: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#f3f4f7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#dfe5f3',
-  },
-  closeBtnText: { color: '#333', fontSize: 16, lineHeight: 18, fontWeight: '700' },
-
-  labelInput: {
-    marginTop: 6,
-    backgroundColor: '#fff',
-    borderColor: '#d7ddea',
-    borderWidth: 1,
-    borderRadius: 8,
-    color: '#111',
-    paddingHorizontal: 8,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 7,
-    fontSize: 12,
-  },
-  typeChip: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
-    backgroundColor: '#eef2ff',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#d6dcff',
-  },
-  typeChipText: { color: '#1f35c5', fontSize: 10, fontWeight: '700' },
-
-  btnPrimary: {
-    backgroundColor: '#1f35c5',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  btnPrimaryText: { color: 'white', fontWeight: '700', fontSize: 15 },
-
-  dropdown: {
-    height: 44,
-    borderColor: '#d7ddea',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-  },
-  dropdownPlaceholder: { color: '#777', fontSize: 14 },
-  dropdownSelected: { color: '#111', fontSize: 14 },
-});

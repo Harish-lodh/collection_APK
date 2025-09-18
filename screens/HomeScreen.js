@@ -1,9 +1,22 @@
+// src/screens/HomeScreen.js
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert,Image } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import { BACKEND_BASE_URL } from "@env";
+import { getCurrentLocation } from "../components/function"; // adjust path if needed
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -19,11 +32,73 @@ export default function HomeScreen({ navigation }) {
     fetchUser();
   }, []);
 
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem("token");
-    await AsyncStorage.removeItem("user");
-    Alert.alert("Logged out", "You have been logged out");
-    navigation.replace("Login");
+  const performLogout = async () => {
+    setLoggingOut(true);
+    try {
+      // Try to get location (may return null); don't block if it fails
+      let loc = null;
+      try {
+        loc = await getCurrentLocation();
+      } catch (e) {
+        console.warn("Location helper failed:", e);
+        loc = null;
+      }
+
+      const payload = {
+        latitude: loc?.latitude ?? null,
+        longitude: loc?.longitude ?? null,
+        timestamp: loc?.timestamp ?? new Date().toISOString(),
+      };
+
+      const token = await AsyncStorage.getItem("token");
+
+      if (token) {
+        try {
+          await axios.post(
+            `${BACKEND_BASE_URL}/auth/logout`,
+            payload,
+            {
+              timeout: 10000,
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          console.log("Server logout succeeded");
+        } catch (apiErr) {
+          console.warn("Logout API failed:", apiErr?.response?.data || apiErr.message || apiErr);
+          // continue to clear local session anyway
+        }
+      } else {
+        console.warn("No token found locally when logging out.");
+      }
+    } catch (err) {
+      console.warn("performLogout error:", err);
+    } finally {
+      // Clear local storage and navigate regardless of API outcome
+      try {
+        await AsyncStorage.removeItem("token");
+        await AsyncStorage.removeItem("user");
+      } catch (e) {
+        console.warn("Error clearing storage:", e);
+      }
+      setLoggingOut(false);
+      Alert.alert("Logged out", "You have been logged out");
+      navigation.replace("Login");
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Confirm logout",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: performLogout },
+      ],
+      { cancelable: true }
+    );
   };
 
   return (
@@ -39,7 +114,7 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.info}>Loading user info...</Text>
       )}
 
-        <View style={styles.container}>
+      <View style={styles.qrWrapper}>
         <Text style={styles.title}>Scan to Pay</Text>
         <View style={styles.qrContainer}>
           <Image
@@ -49,23 +124,31 @@ export default function HomeScreen({ navigation }) {
           />
         </View>
         <Text style={styles.note}>Use any UPI app to scan this QR</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
       </View>
 
-    
+      <TouchableOpacity
+        style={[styles.logoutButton, loggingOut && { opacity: 0.7 }]}
+        onPress={handleLogout}
+        disabled={loggingOut}
+      >
+        {loggingOut ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.logoutText}>Logout</Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 10 },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20},
-  info: { fontSize: 18, marginBottom: 10 },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 12 },
+  info: { fontSize: 18, marginBottom: 8 },
   logoutButton: { marginTop: 14, backgroundColor: "red", padding: 12, borderRadius: 8 },
   logoutText: { color: "white", fontWeight: "bold" },
-    qrContainer: {
+  qrWrapper: { width: "100%", alignItems: "center", marginTop: 18 },
+  qrContainer: {
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 20,
@@ -78,11 +161,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-    qrImage: {
+  qrImage: {
     width: 220,
     height: 220,
   },
-  
   note: {
     fontSize: 14,
     color: "#666",

@@ -62,3 +62,171 @@ export async function uploadPaymentImage2(paymentId, asset) {
 }
 
 
+// src/utils/index.js
+
+// ---------- constants ----------
+export const PHOTO_SLOTS = ['Front', 'Rear', 'Left', 'Right', 'Interior', 'Damages'];
+
+export const REPO_REASONS = [
+  { label: 'NPA', value: 'NPA' },
+  { label: 'Default > 90 days', value: 'DEFAULT_90' },
+  { label: 'Skip Trace Result', value: 'SKIP_TRACE' },
+];
+
+export const VEHICLE_CONDITION = [
+  { label: 'Good', value: 'GOOD' },
+  { label: 'Damaged', value: 'DAMAGED' },
+  { label: 'Modified', value: 'MODIFIED' },
+];
+
+export const PLACES = [
+  { label: 'Roadside', value: 'ROADSIDE' },
+  { label: 'Residence', value: 'RESIDENCE' },
+  { label: 'Workplace', value: 'WORKPLACE' },
+  
+];
+
+export const MIN_REQUIRED_PHOTOS = 3;
+export const MAX_ALLOWED_PHOTOS = 10;
+
+export const PAN_REGEX = /^[A-Z]{5}\d{4}[A-Z]$/;
+export const PHONE_REGEX = /^\d{10}$/;
+export const MIN_PARTNER_ID_LENGTH = 19; // adjust if your server expects different
+
+// ---------- helpers ----------
+export const detectType = (id) => {
+  if (id?.startsWith?.('post_')) return 'POST';
+  if (id?.startsWith?.('pre_')) return 'PRE';
+  if (PHOTO_SLOTS.includes(id)) return 'PRE';
+  return 'PRE';
+};
+
+export const photoCount = (photosObj) =>
+  Object.values(photosObj || {}).filter((f) => !!f?.uri).length;
+
+export const canAddMore = (photosObj) =>
+  photoCount(photosObj) < MAX_ALLOWED_PHOTOS;
+
+// tiny debounce hook (no external deps)
+import { useEffect, useRef } from 'react';
+export function useDebouncedCallback(callback, delay = 300) {
+  const cbRef = useRef(callback);
+  useEffect(() => { cbRef.current = callback; }, [callback]);
+  const timerRef = useRef(null);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+  return (...args) => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => cbRef.current(...args), delay);
+  };
+}
+
+// builds a FormData from fields
+export function buildRepoFormData(payload) {
+  const {
+    base, vehicle, meta, post, coords, photos,
+  } = payload;
+
+  const fd = new FormData();
+
+  // base
+  Object.entries(base || {}).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
+  });
+
+  // vehicle
+  Object.entries(vehicle || {}).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
+  });
+
+  // meta
+  if (meta?.repoDate instanceof Date && !isNaN(meta.repoDate)) {
+    fd.append('repoDate', meta.repoDate.toISOString());
+  }
+  ['repoReason','agency','fieldOfficer','repoPlace','vehicleCondition','inventory','remarks']
+    .forEach((k) => {
+      const v = meta?.[k];
+      if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
+    });
+
+  // post
+  ['yardLocation','yardIncharge','yardContact','yardReceipt','postRemarks']
+    .forEach((k) => {
+      const v = post?.[k];
+      if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
+    });
+
+  // coords
+  if (typeof coords?.latitude === 'number' && Number.isFinite(coords.latitude)) {
+    fd.append('latitude', String(coords.latitude));
+  }
+  if (typeof coords?.longitude === 'number' && Number.isFinite(coords.longitude)) {
+    fd.append('longitude', String(coords.longitude));
+  }
+
+  // photos
+  const entries = Object.entries(photos || {}).filter(([, f]) => !!f?.uri);
+  entries.forEach(([id, file]) => {
+    fd.append('photos', {
+      uri: file.uri,
+      name: file.fileName || `${file.label || id}.jpg`,
+      type: file.type || 'image/jpeg',
+    });
+    fd.append('photoTypes[]', detectType(id));
+    fd.append('photoLabels[]', file.label || id);
+  });
+
+  return fd;
+}
+
+// reset form factory — returns a function you can call after submit
+export function createResetForm(api) {
+  const {
+    Keyboard,
+    setters, // all your setX functions gathered
+    lastFetchRef,
+    scrollRef,
+  } = api;
+
+  return () => {
+    try { Keyboard?.dismiss?.(); } catch {}
+
+    const {
+      setMobile, setPanNumber, setPartnerLoanId, setVehicleNumber, setCustomerName,
+      setMakeModel, setRegNo, setChassisNo, setEngineNo, setBatteryNo,
+      setRepoDate, setShowDatePicker, setShowTimePicker, setRepoReason, setAgency, setFieldOfficer,
+      setRepoPlace, setVehicleCondition, setInventory, setRemarks,
+      setYardLocation, setYardIncharge, setYardContact, setYardReceipt, setPostRemarks,
+      setLatitude, setLongitude, setPhotos, setEditingId, setAutoFetching,
+    } = setters;
+
+    // search
+    setMobile(''); setPanNumber(''); setPartnerLoanId(''); setVehicleNumber(''); setCustomerName('');
+
+    // vehicle
+    setMakeModel(''); setRegNo(''); setChassisNo(''); setEngineNo(''); setBatteryNo('');
+
+    // meta
+    setRepoDate(new Date()); setShowDatePicker(false); setShowTimePicker(false);
+    setRepoReason(null); setAgency(''); setFieldOfficer('');
+    setRepoPlace(null); setVehicleCondition(null); setInventory(''); setRemarks('');
+
+    // post
+    setYardLocation(''); setYardIncharge(''); setYardContact(''); setYardReceipt('');
+    setPostRemarks('');
+
+    // gps
+    setLatitude(null); setLongitude(null);
+
+    // photos & state
+    setPhotos({});
+    setEditingId(null);
+    setAutoFetching(false);
+    if (lastFetchRef?.current) lastFetchRef.current = { phone: '', pan: '', pli: '' };
+
+    // jump to top
+    try { scrollRef?.current?.scrollTo?.({ y: 0, animated: true }); } catch {}
+  };
+}
+
+
+
