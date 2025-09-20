@@ -56,7 +56,7 @@ export default function LoginScreen({ navigation }) {
     <View style={styles.container}>
       <Loader visible={loading} />
 
-      <Text style={styles.title}>RM Login</Text>
+      <Text style={styles.title}>Login</Text>
       <TextInput
         style={styles.input}
         placeholder="Email"
