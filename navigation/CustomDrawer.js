@@ -18,11 +18,11 @@ export default function CustomDrawer(props) {
       </DrawerContentScrollView>
 
       {/* Logout Button */}
-      <View style={styles.logoutContainer}>
+      {/* <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
     </View>
   );
 }

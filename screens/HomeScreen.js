@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   Image,
-  ActivityIndicator,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { BACKEND_BASE_URL } from "@env";
 import { getCurrentLocation } from "../components/function"; // adjust path if needed
+import Loader from "../components/loader";
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -35,13 +35,12 @@ export default function HomeScreen({ navigation }) {
   const performLogout = async () => {
     setLoggingOut(true);
     try {
-      // Try to get location (may return null); don't block if it fails
-      let loc = null;
-      try {
-        loc = await getCurrentLocation();
-      } catch (e) {
-        console.warn("Location helper failed:", e);
-        loc = null;
+
+      loc = await getCurrentLocation();
+      if (!loc) {
+        setLoggingOut(false);
+        return Alert.alert("Error", "Location permission is required to logout.");
+
       }
 
       const payload = {
@@ -68,7 +67,6 @@ export default function HomeScreen({ navigation }) {
           console.log("Server logout succeeded");
         } catch (apiErr) {
           console.warn("Logout API failed:", apiErr?.response?.data || apiErr.message || apiErr);
-          // continue to clear local session anyway
         }
       } else {
         console.warn("No token found locally when logging out.");
@@ -76,7 +74,6 @@ export default function HomeScreen({ navigation }) {
     } catch (err) {
       console.warn("performLogout error:", err);
     } finally {
-      // Clear local storage and navigate regardless of API outcome
       try {
         await AsyncStorage.removeItem("token");
         await AsyncStorage.removeItem("user");
@@ -84,21 +81,9 @@ export default function HomeScreen({ navigation }) {
         console.warn("Error clearing storage:", e);
       }
       setLoggingOut(false);
-      Alert.alert("Logged out", "You have been logged out");
+      //Alert.alert("Logged out", "You have been logged out");
       navigation.replace("Login");
     }
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      "Confirm logout",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: performLogout },
-      ],
-      { cancelable: true }
-    );
   };
 
   return (
@@ -128,15 +113,14 @@ export default function HomeScreen({ navigation }) {
 
       <TouchableOpacity
         style={[styles.logoutButton, loggingOut && { opacity: 0.7 }]}
-        onPress={handleLogout}
+        onPress={performLogout}
         disabled={loggingOut}
       >
-        {loggingOut ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.logoutText}>Logout</Text>
-        )}
+        <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
+
+      {/* Loader shows on top when logging out */}
+      <Loader visible={loggingOut} />
     </View>
   );
 }

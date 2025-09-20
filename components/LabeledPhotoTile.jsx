@@ -54,7 +54,7 @@ function Tile({ id, file, styles, editingId, setEditingId, askPhotoSource, setPh
         </Pressable>
       ) : null}
 
-      <TextInput
+      {/* <TextInput
         ref={inputRef}
         style={[styles.labelInput, !label?.trim() && file?.uri ? { borderColor: 'red' } : null]}
         placeholder="Label (required)"
@@ -71,7 +71,30 @@ function Tile({ id, file, styles, editingId, setEditingId, askPhotoSource, setPh
         autoCorrect={false}
         importantForAutofill="no"
         textContentType="none"
+      /> */}
+
+      <TextInput
+        ref={inputRef}
+        style={[styles.labelInput, !label?.trim() && file?.uri ? { borderColor: 'red' } : null]}
+        placeholder="Label (required)"
+        value={label}
+        onChangeText={(t) => {
+          setLabel(t);
+          setPhotos((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), label: t } }));
+        }}
+        multiline={false}
+        blurOnSubmit={false}
+        returnKeyType="done"
+        onFocus={() => setEditingId(id)}
+        onBlur={() => { setEditingId(null); commitLabel(); }}
+        onSubmitEditing={() => { Keyboard.dismiss(); setEditingId(null); commitLabel(); }}
+        onTouchStart={focusInput}
+        onPressIn={focusInput}
+        autoCorrect={false}
+        importantForAutofill="no"
+        textContentType="none"
       />
+
 
       <View style={styles.typeChip} pointerEvents="none">
         <Text style={styles.typeChipText}>{typeChip}</Text>

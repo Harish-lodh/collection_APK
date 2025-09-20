@@ -13,6 +13,7 @@ import {
   Keyboard,
 } from 'react-native';
 import axios from 'axios';
+import Loader from '../components/loader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -98,7 +99,7 @@ export default function RepossessionScreen() {
         setLatitude(lat); setLongitude(lon);
         return true;
       }
-    } catch {}
+    } catch { }
     return false;
   };
 
@@ -126,27 +127,50 @@ export default function RepossessionScreen() {
           },
         }));
       }
-    } catch {}
+    } catch { }
   };
 
   const pickPhoto = async (id) => {
     try {
-      const res = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
-      if (res?.assets?.length) {
-        const a = res.assets[0];
-        setPhotos((p) => ({
-          ...p,
-          [id]: {
-            ...(p[id] || {}),
+      const currentCount = Object.values(photos).filter((p) => p?.uri).length;
+      const remaining = Math.max(0, MAX_ALLOWED_PHOTOS - currentCount);
+      if (remaining <= 0) {
+        return Alert.alert('Limit', `Max ${MAX_ALLOWED_PHOTOS} photos allowed.`);
+      }
+
+      const res = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        selectionLimit: remaining,        // allow picking many at once
+        includeBase64: false,
+      });
+
+      if (res?.didCancel) return;
+      const assets = res?.assets || [];
+      if (!assets.length) return;
+
+      setPhotos((prev) => {
+        const next = { ...prev };
+        const prefix = id.startsWith('pre_') ? 'pre' : 'post';
+
+        assets.forEach((a, idx) => {
+          const targetId = idx === 0 ? id : `${prefix}_${Date.now()}_${idx}`;
+          next[targetId] = {
+            ...(prev[targetId] || {}),
             uri: a.uri,
             type: a.type || 'image/jpeg',
-            fileName: a.fileName || `${id}.jpg`,
-            label: p[id]?.label ?? '',
-          },
-        }));
-      }
-    } catch {}
+            fileName: a.fileName || `${targetId}.jpg`,
+            label: prev[targetId]?.label ?? '',
+          };
+        });
+
+        return next;
+      });
+    } catch (err) {
+      console.warn('pickPhoto multi-select error', err);
+    }
   };
+
 
   const handleDateChange = (_e, selectedDate) => {
     setShowDatePicker(false);
@@ -205,33 +229,78 @@ export default function RepossessionScreen() {
     },
   });
 
+  // const handleSubmit = async () => {
+  //   if (!validateBasics()) return;
+  //   setSubmitting(true);
+  //   try {
+  //     await captureLocation();
+  //     const token = await getAuthToken();
+
+  //     const fd = buildRepoFormData({
+  //       base: {
+  //         mobile, panNumber, partnerLoanId, vehicleNumber, customerName,
+  //       },
+  //       vehicle: { makeModel, regNo, chassisNo, engineNo, batteryNo },
+  //       meta: { repoDate, repoReason, agency, fieldOfficer, repoPlace, vehicleCondition, inventory, remarks },
+  //       post: { yardLocation, yardIncharge, yardContact, yardReceipt, postRemarks },
+  //       coords: { latitude, longitude },
+  //       photos,
+  //     });
+
+  //     await axios.post(`${BACKEND_BASE_URL}/repossession`, fd, {
+  //       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+  //     });
+
+  //     Alert.alert('Success', '✅Repossession details submitted.');
+  //     resetForm(); // stay on page, clear form
+  //   } catch (e) {
+  //     const msg = e?.response?.data?.error || e?.response?.data?.message || (typeof e?.message === 'string' ? e.message : 'Failed to submit');
+  //     Alert.alert('Error', String(msg));
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
+
+
   const handleSubmit = async () => {
     if (!validateBasics()) return;
     setSubmitting(true);
-    try {
-      await captureLocation();
-      const token = await getAuthToken();
 
-      const fd = buildRepoFormData({
-        base: {
-          mobile, panNumber, partnerLoanId, vehicleNumber, customerName,
-        },
+    try {
+      // prepare payload before async work
+      const payload = {
+        base: { mobile, panNumber, partnerLoanId, vehicleNumber, customerName },
         vehicle: { makeModel, regNo, chassisNo, engineNo, batteryNo },
         meta: { repoDate, repoReason, agency, fieldOfficer, repoPlace, vehicleCondition, inventory, remarks },
         post: { yardLocation, yardIncharge, yardContact, yardReceipt, postRemarks },
         coords: { latitude, longitude },
         photos,
-      });
+      };
+
+      // run location + token fetching in parallel
+      const [_, token] = await Promise.all([
+        captureLocation(),    // updates latitude/longitude in state
+        getAuthToken(),
+      ]);
+
+      const fd = buildRepoFormData(payload);
 
       await axios.post(`${BACKEND_BASE_URL}/repossession`, fd, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 20000, // optional: fail faster if backend hangs
       });
 
-      Alert.alert('Success', 'Repossession details submitted.');
-      resetForm(); // stay on page, clear form
+      Alert.alert("Success", "✅ Repossession details submitted.");
+      resetForm();
     } catch (e) {
-      const msg = e?.response?.data?.error || e?.response?.data?.message || (typeof e?.message === 'string' ? e.message : 'Failed to submit');
-      Alert.alert('Error', String(msg));
+      const msg =
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        (typeof e?.message === "string" ? e.message : "Failed to submit");
+      Alert.alert("Error", String(msg));
     } finally {
       setSubmitting(false);
     }
@@ -260,7 +329,7 @@ export default function RepossessionScreen() {
       setMobile(r.mobileNumber || '');
       setPanNumber(r.panNumber || '');
       setPartnerLoanId(r.partnerLoanId || '');
-    } catch {} finally {
+    } catch { } finally {
       setAutoFetching(false);
       setAutoFetchBusyKey(null);
     }
@@ -468,7 +537,7 @@ export default function RepossessionScreen() {
           <Text style={styles.section}>Post-Repossession</Text>
           <TextInput style={styles.input} value={yardLocation} onChangeText={setYardLocation} placeholder="Yard Location" />
           <TextInput style={styles.input} value={yardIncharge} onChangeText={setYardIncharge} placeholder="Yard In-charge" />
-          <TextInput style={styles.input} value={yardContact} onChangeText={setYardContact} placeholder="Yard Contact" keyboardType="phone-pad" />
+          <TextInput style={styles.input} value={yardContact} onChangeText={setYardContact} placeholder="Yard Contact" keyboardType="numeric" />
           <TextInput style={styles.input} value={yardReceipt} onChangeText={setYardReceipt} placeholder="Yard Receipt No." />
 
           <Text style={styles.label}>Post-Repossession Remarks</Text>
@@ -539,12 +608,19 @@ export default function RepossessionScreen() {
         </View>
 
         {/* Submit */}
-        <Pressable style={[styles.btnPrimary, submitting && { opacity: 0.7 }]} onPress={handleSubmit} disabled={submitting}>
-          {submitting ? <ActivityIndicator  size="large" color="#007AFF" /> : <Text style={styles.btnPrimaryText}>Submit</Text>}
+        <Pressable
+          style={[styles.btnPrimary, submitting && { opacity: 0.7 }]}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
+          <Text style={styles.btnPrimaryText}>
+            {submitting ? 'Submitting...' : 'Submit'}
+          </Text>
         </Pressable>
 
         <View style={{ height: 24 }} />
       </ScrollView>
+      <Loader visible={submitting} />
     </SafeAreaView>
   );
 }

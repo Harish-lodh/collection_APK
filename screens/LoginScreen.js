@@ -1,9 +1,18 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import {getCurrentLocation} from '../components/function'
-import {BACKEND_BASE_URL} from '@env'
+import { getCurrentLocation } from "../components/function";
+import { BACKEND_BASE_URL } from "@env";
+import Loader from "../components/loader";
+
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,18 +25,22 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const location = await getCurrentLocation(); // may be null
+      if (!location) {
+        setLoading(false);
+        return Alert.alert("Error", "Location permission is required to log in.");
+      }
 
-      console.log("backend_url",BACKEND_BASE_URL)
-      const res = await axios.post(`${BACKEND_BASE_URL}/auth/login`, { email, password,  latitude: location?.latitude ?? null,
-  longitude: location?.longitude ?? null,
-  timestamp: location?.timestamp ?? new Date().toISOString(), });
-      console.log("thiss tokeeeeeennn",res.data)
+      const res = await axios.post(`${BACKEND_BASE_URL}/auth/login`, {
+        email,
+        password,
+        latitude: location?.latitude ?? null,
+        longitude: location?.longitude ?? null,
+        timestamp: location?.timestamp ?? new Date().toISOString(),
+      });
+
       if (res.data.token) {
-        // Save token and user data in AsyncStorage
         await AsyncStorage.setItem("token", res.data.token);
         await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
-         console.log("token saved",res.data.token)
-        // Navigate to the MainDrawer after successful login
         navigation.replace("MainDrawer");
       } else {
         Alert.alert("Error", "No token received from server");
@@ -41,6 +54,8 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <Loader visible={loading} />
+
       <Text style={styles.title}>RM Login</Text>
       <TextInput
         style={styles.input}
@@ -62,7 +77,9 @@ export default function LoginScreen({ navigation }) {
         onPress={handleLogin}
         disabled={loading}
       >
-        <Text style={styles.buttonText}>{loading ? "Logging in..." : "Login"}</Text>
+        <Text style={styles.buttonText}>
+          {loading ? "Logging in..." : "Login"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -70,8 +87,18 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 20 },
-  title: { fontSize: 28, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
-  input: { borderWidth: 1, marginBottom: 12, padding: 10, borderRadius: 8 },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  input: {
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 8,
+  },
   button: { backgroundColor: "blue", padding: 15, borderRadius: 8 },
   buttonText: { color: "white", textAlign: "center", fontWeight: "bold" },
 });
