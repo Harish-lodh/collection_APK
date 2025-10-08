@@ -12,7 +12,8 @@ import axios from "axios";
 import { getCurrentLocation } from "../components/function";
 import { BACKEND_BASE_URL } from "@env";
 import Loader from "../components/loader";
-
+import { startTracking } from '../components/bgTracking';
+import { nanoid } from 'nanoid';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,22 +30,30 @@ export default function LoginScreen({ navigation }) {
         setLoading(false);
         return Alert.alert("Error", "Location permission is required to log in.");
       }
-
+      console.log("backend_url :", BACKEND_BASE_URL)
       const res = await axios.post(`${BACKEND_BASE_URL}/auth/login`, {
         email,
         password,
-        latitude: location?.latitude ?? null,
-        longitude: location?.longitude ?? null,
+        // latitude: location?.latitude ?? null,
+        // longitude: location?.longitude ?? null,
         timestamp: location?.timestamp ?? new Date().toISOString(),
       });
 
       if (res.data.token) {
         await AsyncStorage.setItem("token", res.data.token);
         await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+
+        // Generate unique sessionId for each login
+        const sessionId = nanoid(5); // ~5 chars
+        await AsyncStorage.setItem('sessionId', sessionId);
+
+        console.log("starting watch");
+        await startTracking(300000,"Login"); // Start location tracking after login
         navigation.replace("MainDrawer");
       } else {
         Alert.alert("Error", "No token received from server");
       }
+
     } catch (err) {
       Alert.alert("Login failed", err.response?.data?.message || err.message);
     } finally {

@@ -13,6 +13,7 @@ import axios from "axios";
 import { BACKEND_BASE_URL } from "@env";
 import { getCurrentLocation } from "../components/function"; // adjust path if needed
 import Loader from "../components/loader";
+import { stopTracking } from "../components/bgTracking";
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -34,39 +35,56 @@ export default function HomeScreen({ navigation }) {
 
   const performLogout = async () => {
     setLoggingOut(true);
-    try {
 
-      loc = await getCurrentLocation();
+    try {
+      // get current location (wrapped in try so any location error is handled)
+      let loc = null;
+      try {
+        loc = await getCurrentLocation();
+      } catch (locErr) {
+        console.warn("getCurrentLocation failed:", locErr);
+      }
+
       if (!loc) {
         setLoggingOut(false);
         return Alert.alert("Error", "Location permission is required to logout.");
+      }
 
+      // normalize timestamp (Geolocation may return numeric timestamp)
+      let timestamp;
+      if (loc.timestamp) {
+        timestamp =
+          typeof loc.timestamp === "number"
+            ? new Date(loc.timestamp).toISOString()
+            : String(loc.timestamp);
+      } else {
+        timestamp = new Date().toISOString();
       }
 
       const payload = {
-        latitude: loc?.latitude ?? null,
-        longitude: loc?.longitude ?? null,
-        timestamp: loc?.timestamp ?? new Date().toISOString(),
+        latitude: loc.latitude ?? null,
+        longitude: loc.longitude ?? null,
+        timestamp,
       };
 
       const token = await AsyncStorage.getItem("token");
 
       if (token) {
         try {
-          await axios.post(
-            `${BACKEND_BASE_URL}/auth/logout`,
-            payload,
-            {
-              timeout: 10000,
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
+          await axios.post(`${BACKEND_BASE_URL}/auth/logout`, payload, {
+            timeout: 10000,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
           console.log("Server logout succeeded");
         } catch (apiErr) {
-          console.warn("Logout API failed:", apiErr?.response?.data || apiErr.message || apiErr);
+          // log more details but don't block logout flow
+          console.warn(
+            "Logout API failed:",
+            apiErr?.response?.data ?? apiErr.message ?? apiErr
+          );
         }
       } else {
         console.warn("No token found locally when logging out.");
@@ -74,14 +92,25 @@ export default function HomeScreen({ navigation }) {
     } catch (err) {
       console.warn("performLogout error:", err);
     } finally {
+      // always try to cleanup tracking and storage, even if API or location failed
       try {
+        // stopTracking may be async
+        if (typeof stopTracking === "function") await stopTracking();
+      } catch (stopErr) {
+        console.warn("stopTracking failed:", stopErr);
+      }
+
+      try {
+        await AsyncStorage.removeItem("sessionId");
         await AsyncStorage.removeItem("token");
         await AsyncStorage.removeItem("user");
       } catch (e) {
         console.warn("Error clearing storage:", e);
       }
+
       setLoggingOut(false);
-      //Alert.alert("Logged out", "You have been logged out");
+
+      // navigate to Login screen (replace so user can't go back)
       navigation.replace("Login");
     }
   };
@@ -92,8 +121,8 @@ export default function HomeScreen({ navigation }) {
 
       {user ? (
         <>
-          <Text style={styles.info}>👤 Name: {user.name}</Text>
-          <Text style={styles.info}>🎭 Role: {user.role}</Text>
+          <Text style={styles.info}>👤 Name: {user.name ?? "—"}</Text>
+          <Text style={styles.info}>🎭 Role: {user.role ?? "—"}</Text>
         </>
       ) : (
         <Text style={styles.info}>Loading user info...</Text>
@@ -119,7 +148,6 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
 
-      {/* Loader shows on top when logging out */}
       <Loader visible={loggingOut} />
     </View>
   );

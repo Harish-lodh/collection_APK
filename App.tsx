@@ -15,6 +15,7 @@ import PaymentImage2Screen from './screens/PaymentImage2Screen.js'
 import LoginScreen from "./screens/LoginScreen.js";
 import DrawerNavigator from "./navigation/DrawerNavigator.js";
 import RepossessionScreen  from './screens/RepossessionScreen.js'
+import 'react-native-get-random-values';
 
 const Stack = createStackNavigator();
 
