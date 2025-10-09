@@ -56,6 +56,11 @@ export default function CashReceiptScreen() {
   const [photoError, setPhotoError] = useState('');
   const [image, setImage] = useState(null);
 
+  // Selfie picking UI
+  const [selfieSource, setSelfieSource] = useState('camera');
+  const [selfieError, setSelfieError] = useState('');
+  const [selfie, setSelfie] = useState(null);
+
   // Helper: treat anything except "Cash" as non-cash
   const isNonCash = selectedValue === 'UPI' || selectedValue === 'Cheque';
 
@@ -73,6 +78,7 @@ export default function CashReceiptScreen() {
     paymentMode: '',
     paymentRef: '',
     image: '',
+    selfie: '',
   });
 
   const data = [
@@ -116,6 +122,16 @@ export default function CashReceiptScreen() {
     }
   };
 
+  const onCaptureSelfie = async () => {
+    const asset = await captureFromCamera();
+    if (asset) {
+      console.log(asset)
+      setSelfie(asset);
+      setSelfieError('');
+      setErrors((p) => ({ ...p, selfie: '' }));
+    }
+  };
+
   const validateForm = () => {
     let isValid = true;
     const newErrors = {
@@ -131,6 +147,7 @@ export default function CashReceiptScreen() {
       paymentMode: '',
       paymentRef: '',
       image: '',
+      selfie: '',
     };
 
     if (!panNumber.trim()) {
@@ -196,6 +213,11 @@ export default function CashReceiptScreen() {
     }
     if (!image?.uri) {
       newErrors.image = 'Receipt photo is required for UPI/Cheque/cash';
+      isValid = false;
+    }
+
+    if (!selfie?.uri) {
+      newErrors.selfie = 'Selfie photo is required';
       isValid = false;
     }
 
@@ -288,6 +310,14 @@ export default function CashReceiptScreen() {
         });
       }
 
+      if (selfie?.uri) {
+        form.append('selfie', {
+          uri: selfie.uri,
+          name: selfie.fileName || `selfie_${Date.now()}.jpg`,
+          type: selfie.type || 'image/jpeg',
+        });
+      }
+
       const token = await getAuthToken();
       console.log("backend url", BACKEND_BASE_URL)
       const res = await axios.post(
@@ -320,8 +350,11 @@ export default function CashReceiptScreen() {
             setAmount('');
             setremark('');
             setImage(null);
+            setSelfie(null);
             setPhotoSource(null);
+            setSelfieSource('camera');
             setPhotoError('');
+            setSelfieError('');
             setErrors({
               panNumber: '',
               customerName: '',
@@ -336,6 +369,7 @@ export default function CashReceiptScreen() {
               paymentMode: '',
               paymentRef: '',
               image: '',
+              selfie: '',
             });
           },
         },
@@ -704,6 +738,81 @@ export default function CashReceiptScreen() {
                 </Pressable>
               </View>
               <Text style={styles.previewCaption}>Preview</Text>
+            </View>
+          )}
+        </View>
+
+        {/* --- Selfie Photo --- */}
+        <View style={styles.field}>
+          <View style={styles.headerRow}>
+            <Text style={styles.label}>
+              Selfie Photo <Text style={styles.req}>*</Text>
+            </Text>
+            {selfie?.uri ? (
+              <Text style={styles.hintOk}>Selected</Text>
+            ) : (
+              <Text style={styles.hint}>Selfie is required</Text>
+            )}
+          </View>
+
+          {/* Segmented cards - only camera */}
+          <View style={styles.segmentRow}>
+            <Pressable
+              onPress={() => setSelfieSource('camera')}
+              style={[styles.segment, selfieSource === 'camera' && styles.segmentActive]}
+              hitSlop={8}
+            >
+              <Text style={[styles.segmentEmoji, selfieSource === 'camera' && styles.segmentEmojiActive]}>
+                📷
+              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.segmentTitle, selfieSource === 'camera' && styles.segmentTitleActive]}>
+                  Camera
+                </Text>
+                <Text style={styles.segmentSub}>Capture a new selfie</Text>
+              </View>
+              {selfieSource === 'camera' ? <Text style={styles.tick}>✓</Text> : null}
+            </Pressable>
+          </View>
+
+          {/* Pick button */}
+          <Pressable
+            onPress={async () => {
+              setSelfieError('');
+              if (!selfieSource) {
+                setSelfieError('Please choose Camera.');
+                return;
+              }
+              if (selfieSource === 'camera') await onCaptureSelfie();
+            }}
+            style={[styles.primaryBtn, !selfieSource && { opacity: 0.6 }]}
+          >
+            <Text style={styles.primaryBtnText}>Capture Selfie</Text>
+          </Pressable>
+
+          {/* Errors underneath */}
+          {selfieError ? <Text style={styles.errorText}>{selfieError}</Text> : null}
+          {errors.selfie ? <Text style={styles.errorText}>{errors.selfie}</Text> : null}
+
+          {/* Preview with custom close pill */}
+          {selfie?.uri && (
+            <View style={{ alignItems: 'center', marginTop: 12 }}>
+              <View style={{ position: 'relative' }}>
+                <Image source={{ uri: selfie.uri }} style={{ width: 220, height: 220, borderRadius: 10 }} />
+                <Pressable
+                  onPress={() => {
+                    setSelfie(null);
+                  //  setSelfieError('Selfie photo is required.');
+                    setErrors((p) => ({ ...p, selfie: 'Selfie photo is required' }));
+                  }}
+                  accessibilityLabel="Remove selfie"
+                  hitSlop={8}
+                  style={styles.closePill}
+                >
+                  <Text style={styles.closeText}>×</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.previewCaption}>Selfie Preview</Text>
             </View>
           )}
         </View>
