@@ -44,13 +44,15 @@ export async function fetchPendingCashPayments(collectedBy) {
   return data?.data || [];
 }
 
-export async function uploadPaymentImage2(paymentId, asset) {
+export async function uploadPaymentImage2(paymentId, asset,product) {
   const token = await getAuthToken();
   const name = asset.fileName || `image2_${paymentId}.jpg`;
   const type =
     asset.type || (name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
 
   const form = new FormData();
+    form.append('product', product); // 👈 send product
+
   form.append('image2', { uri: asset.uri, name, type });
 
   await axios.post(`${BACKEND_BASE_URL}/loanDetails/payments/${paymentId}/image2`, form, {
@@ -178,6 +180,7 @@ export function useDebouncedCallback(callback, delay = 300) {
 //   return fd;
 // }
 export function buildRepoFormData({
+  product,
   base = {},
   vehicle = {},
   meta = {},
@@ -195,7 +198,9 @@ export function buildRepoFormData({
       }
     });
   };
-
+ if (product) {
+    fd.append("product", String(product).toLowerCase());
+  }
   // base + vehicle
   appendFields(base, Object.keys(base));
   appendFields(vehicle, Object.keys(vehicle));

@@ -82,10 +82,23 @@ export default function PendingCashPaymentsScreen() {
     <View style={s.card}>
       <View style={s.cardHeader}>
         <Text style={s.name} numberOfLines={1}>{item.customerName || '-'}</Text>
+
+        {/* Product Badge */}
+        <View style={[
+          s.productBadge,
+          item.product === 'malhotra' ? s.malhotra : s.embifi
+        ]}>
+          <Text style={s.productText}>
+            {item.product === 'malhotra' ? 'Malhotra' : 'Embifi'}
+          </Text>
+        </View>
+
+        {/* Pending Badge */}
         <View style={s.badge}>
           <Text style={s.badgeText}>Pending</Text>
         </View>
       </View>
+
 
       <View style={s.row}>
         <Text style={s.label}>LAN</Text>
@@ -155,7 +168,7 @@ export default function PendingCashPaymentsScreen() {
 
       <FlatList
         data={filtered}
-        keyExtractor={(it) => String(it.id)}
+         keyExtractor={(it) => `${it.product}-${it.id}`}
         renderItem={renderItem}
         contentContainerStyle={filtered.length === 0 ? s.emptyPad : { paddingHorizontal: 12, paddingBottom: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -177,7 +190,7 @@ export default function PendingCashPaymentsScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F6F7FB' },
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  title: { fontSize: 20, fontWeight: '700', color: '#111827',marginVertical:8 },
+  title: { fontSize: 20, fontWeight: '700', color: '#111827', marginVertical: 8 },
   subtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
   searchWrap: { paddingHorizontal: 16, paddingVertical: 8 },
   search: {
@@ -240,4 +253,23 @@ const s = StyleSheet.create({
   empty: { alignItems: 'center' },
   emptyEmoji: { fontSize: 42, marginBottom: 6 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 2 },
+
+  productBadge: {
+  marginRight: 6,
+  paddingHorizontal: 10,
+  paddingVertical: 4,
+  borderRadius: 999,
+},
+productText: {
+  fontSize: 12,
+  fontWeight: '600',
+  color: 'white',
+},
+embifi: {
+  backgroundColor: '#2563EB', // Blue
+},
+malhotra: {
+  backgroundColor: '#059669', // Green
+},
+
 });
