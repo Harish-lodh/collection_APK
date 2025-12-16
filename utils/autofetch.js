@@ -10,6 +10,7 @@ export const fetchAutoData = async (product, key, value, setters) => {
   const normalizedProduct = String(product).toLowerCase().trim();
 
   const url = `${BACKEND_BASE_URL}/lms/user-Details`;
+console.log(`Fetching data with key: ${key} and value: ${value}`);
 
   try {
     console.log(url, key, value);
@@ -22,6 +23,7 @@ export const fetchAutoData = async (product, key, value, setters) => {
     });
 
     const result = res?.data?.data?.[0];
+    console.log("autofetch",result)
     if (!result) return;
 
     setters.setCustomerName(result.customerName || result.name || "");

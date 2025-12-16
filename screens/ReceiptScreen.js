@@ -471,7 +471,7 @@ useEffect(() => {
 
               setContactNumber(text);
               if (text.length === 10) {
-                debouncedFetch(selectedProduct, 'phoneNumber', text, {
+                debouncedFetch(selectedProduct, 'mobileNumber', text, {
                   setCustomerName,
                   setLoanId,
                   setPartnerLoanId,
