@@ -32,9 +32,10 @@
 import React from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import LoanDetailsScreen from "../screens/LoanDetailsScreen";
+import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen"
 import PendingCashPaymentsScreen from '../screens/PendingCashPaymentsScreen';
 // import PaymentImage2Screen from '../screens/PaymentImage2Screen';
-import CashReceiptScreen from "../screens/CashReceiptScreen";
+import CashReceiptScreen from "../screens/ReceiptScreen";
 import HomeScreen from "../screens/HomeScreen";
 import CustomDrawer from "./CustomDrawer";
 import RepossessionScreen from "../screens/RepossessionScreen";
@@ -53,6 +54,14 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} />
       <Drawer.Screen name="Pending Cash Receipt" component={PendingCashPaymentsScreen} />
       <Drawer.Screen name="Repossession" component={RepossessionScreen} options={{ title: 'Vehicle Repossession' }} />
+      <Drawer.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          title: "Privacy Policy",
+          drawerItemStyle: { display: 'none' }
+        }}
+      />
 
     </Drawer.Navigator>
   );

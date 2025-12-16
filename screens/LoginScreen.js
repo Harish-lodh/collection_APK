@@ -42,6 +42,7 @@ export default function LoginScreen({ navigation }) {
       if (res.data.token) {
         await AsyncStorage.setItem("token", res.data.token);
         await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+        await AsyncStorage.setItem("permissions", JSON.stringify(res.data.user?.permissions));
 
         // Generate unique sessionId for each login
         const sessionId = nanoid(5); // ~5 chars

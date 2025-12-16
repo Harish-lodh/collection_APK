@@ -1,4 +1,3 @@
-// src/screens/HomeScreen.js
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -9,35 +8,51 @@ import {
   Image,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import { BACKEND_BASE_URL } from "@env";
-import { getCurrentLocation } from "../components/function"; // adjust path if needed
+import apiClient from "../server/apiClient"; // ✅ use global axios instance
+import { getCurrentLocation } from "../components/function";
 import Loader from "../components/loader";
 import { stopTracking } from "../components/bgTracking";
+import logo from "../assets/icons/icon.png";
+import HeyEvscanner from "../assets/images/HeyEv_scanner.jpg";
+import Scanner from "../assets/images/Scanner.png";
 
 export default function HomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
+  const [scanner, setScanner] = useState(Scanner);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const savedUser = await AsyncStorage.getItem("user");
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-        }
-      } catch (err) {
-        console.error("Failed to load user", err);
+useEffect(() => {
+  const fetchUser = async () => {
+    try {
+      const savedUser = await AsyncStorage.getItem("user");
+      const permissions = await AsyncStorage.getItem("permissions");
+      const parsed = permissions ? JSON.parse(permissions) : [];
+
+      // Normalize permission strings to lowercase
+      const normalized = parsed.map(p => p.toLowerCase());
+      console.log("Loaded permissions:", normalized);
+
+      // Dynamically change scanner based on permission
+      if (normalized.includes("heyev")) {
+        setScanner(HeyEvscanner);
+      } else {
+        setScanner(Scanner);
       }
-    };
-    fetchUser();
-  }, []);
+
+      if (savedUser) setUser(JSON.parse(savedUser));
+    } catch (err) {
+      console.error("Failed to load user", err);
+    }
+  };
+
+  fetchUser();
+}, []);
+
 
   const performLogout = async () => {
     setLoggingOut(true);
 
     try {
-      // get current location (wrapped in try so any location error is handled)
       let loc = null;
       try {
         loc = await getCurrentLocation();
@@ -50,16 +65,10 @@ export default function HomeScreen({ navigation }) {
         return Alert.alert("Error", "Location permission is required to logout.");
       }
 
-      // normalize timestamp (Geolocation may return numeric timestamp)
-      let timestamp;
-      if (loc.timestamp) {
-        timestamp =
-          typeof loc.timestamp === "number"
-            ? new Date(loc.timestamp).toISOString()
-            : String(loc.timestamp);
-      } else {
-        timestamp = new Date().toISOString();
-      }
+      const timestamp =
+        typeof loc.timestamp === "number"
+          ? new Date(loc.timestamp).toISOString()
+          : loc.timestamp || new Date().toISOString();
 
       const payload = {
         latitude: loc.latitude ?? null,
@@ -67,56 +76,36 @@ export default function HomeScreen({ navigation }) {
         timestamp,
       };
 
-      const token = await AsyncStorage.getItem("token");
-
-      if (token) {
-        try {
-          await axios.post(`${BACKEND_BASE_URL}/auth/logout`, payload, {
-            timeout: 10000,
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-          console.log("Server logout succeeded");
-        } catch (apiErr) {
-          // log more details but don't block logout flow
-          console.warn(
-            "Logout API failed:",
-            apiErr?.response?.data ?? apiErr.message ?? apiErr
-          );
-        }
-      } else {
-        console.warn("No token found locally when logging out.");
+      // ✅ token automatically handled by apiClient
+      try {
+        await apiClient.post("/auth/logout", payload, { timeout: 10000 });
+        console.log("Server logout succeeded");
+      } catch (apiErr) {
+        console.warn("Logout API failed:", apiErr?.response?.data ?? apiErr.message);
       }
     } catch (err) {
       console.warn("performLogout error:", err);
     } finally {
-      // always try to cleanup tracking and storage, even if API or location failed
       try {
-        // stopTracking may be async
         if (typeof stopTracking === "function") await stopTracking();
       } catch (stopErr) {
         console.warn("stopTracking failed:", stopErr);
       }
 
       try {
-        await AsyncStorage.removeItem("sessionId");
-        await AsyncStorage.removeItem("token");
-        await AsyncStorage.removeItem("user");
+        await AsyncStorage.multiRemove(["sessionId", "token", "user"]);
       } catch (e) {
         console.warn("Error clearing storage:", e);
       }
 
       setLoggingOut(false);
-
-      // navigate to Login screen (replace so user can't go back)
       navigation.replace("Login");
     }
   };
 
   return (
     <View style={styles.container}>
+      <Image source={logo} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>Welcome</Text>
 
       {user ? (
@@ -131,11 +120,7 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.qrWrapper}>
         <Text style={styles.title}>Scan to Pay</Text>
         <View style={styles.qrContainer}>
-          <Image
-            source={require("../assets/images/Scanner.png")}
-            style={styles.qrImage}
-            resizeMode="contain"
-          />
+          <Image source={scanner} style={styles.qrImage} resizeMode="contain" />
         </View>
         <Text style={styles.note}>Use any UPI app to scan this QR</Text>
       </View>
@@ -165,7 +150,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginVertical: 20,
     backgroundColor: "#fff",
-    padding: 16,
+    padding: 5,
     borderRadius: 12,
     shadowColor: "#000",
     shadowOpacity: 0.1,
@@ -173,14 +158,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  qrImage: {
-    width: 220,
-    height: 220,
-  },
-  note: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 2,
-  },
+  qrImage: { width: 240, height: 240 },
+  note: { fontSize: 14, color: "#666", textAlign: "center", marginTop: 2 },
+  logo: { width: 120, height: 120, marginBottom: 10 },
 });
