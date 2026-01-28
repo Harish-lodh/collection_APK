@@ -88,6 +88,40 @@ export const PLACES = [
   
 ];
 
+/**
+ * Reasons for why payment was not collected
+ * Used in Collector & RM modules
+ */
+
+export const NOT_PAID_REASONS = [
+  {
+    label: 'Customer Not Available',
+    value: 'CUSTOMER_NOT_AVAILABLE',
+  },
+  {
+    label: 'Customer Refused to Pay',
+    value: 'CUSTOMER_REFUSED',
+  },
+  {
+    label: 'Insufficient Funds',
+    value: 'INSUFFICIENT_FUNDS',
+  },
+  {
+    label: 'Asked for Time (Promise to Pay)',
+    value: 'PROMISE_TO_PAY',
+  },
+  {
+    label: 'Dispute / Issue',
+    value: 'DISPUTE',
+  },
+  {
+    label: 'Other',
+    value: 'OTHER',
+  },
+];
+
+
+
 export const MIN_REQUIRED_PHOTOS = 3;
 export const MAX_ALLOWED_PHOTOS = 10;
 
