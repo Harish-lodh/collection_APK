@@ -9,9 +9,9 @@
 <!-- needed for camera -->
 <!-- <uses-permission android:name="android.permission.CAMERA" /> -->
 <!-- needed for picking images (Android 13+) -->
-<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+<!-- <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" /> -->
 <!-- pre-Android 13 -->
-<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+<!-- <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" /> -->
 
     <application
       android:name=".MainApplication"

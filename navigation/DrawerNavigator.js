@@ -54,6 +54,7 @@ export default function DrawerNavigator() {
       <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} />
       <Drawer.Screen name="Pending Cash Receipt" component={PendingCashPaymentsScreen} />
       <Drawer.Screen name="Repossession" component={RepossessionScreen} options={{ title: 'Vehicle Repossession' }} />
+
       <Drawer.Screen
         name="PrivacyPolicy"
         component={PrivacyPolicyScreen}
