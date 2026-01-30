@@ -1,4 +1,4 @@
-import {launchImageLibrary, launchCamera} from 'react-native-image-picker';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import { getAuthToken } from '../components/authToken';
 import { BACKEND_BASE_URL } from '@env';
 import axios from 'axios';
@@ -34,9 +34,8 @@ export const captureFromCamera = async () => {
 
 export async function fetchPendingCashPayments(collectedBy) {
   const token = await getAuthToken();
-  const url = `${BACKEND_BASE_URL}/loanDetails/pending-cash-payments${
-    collectedBy ? `?collectedBy=${encodeURIComponent(collectedBy)}` : ''
-  }`;
+  const url = `${BACKEND_BASE_URL}/loanDetails/pending-cash-payments${collectedBy ? `?collectedBy=${encodeURIComponent(collectedBy)}` : ''
+    }`;
   console.log(url);
   const { data } = await axios.get(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -44,14 +43,14 @@ export async function fetchPendingCashPayments(collectedBy) {
   return data?.data || [];
 }
 
-export async function uploadPaymentImage2(paymentId, asset,product) {
+export async function uploadPaymentImage2(paymentId, asset, product) {
   const token = await getAuthToken();
   const name = asset.fileName || `image2_${paymentId}.jpg`;
   const type =
     asset.type || (name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
 
   const form = new FormData();
-    form.append('product', product); // 👈 send product
+  form.append('product', product); // 👈 send product
 
   form.append('image2', { uri: asset.uri, name, type });
 
@@ -85,7 +84,7 @@ export const PLACES = [
   { label: 'Roadside', value: 'ROADSIDE' },
   { label: 'Residence', value: 'RESIDENCE' },
   { label: 'Workplace', value: 'WORKPLACE' },
-  
+
 ];
 
 /**
@@ -109,6 +108,14 @@ export const NOT_PAID_REASONS = [
   {
     label: 'Asked for Time (Promise to Pay)',
     value: 'PROMISE_TO_PAY',
+  },
+  {
+    label: 'Customer surrendered the vehicle',
+    value: 'CUSTOMER_SURRENDERED_VEHICLE',
+  },
+  {
+    label: 'Vehicle taken by dealer due to non-payment',
+    value: 'VEHICLE_TAKEN_BY_DEALER',
   },
   {
     label: 'Dispute / Issue',
@@ -232,7 +239,7 @@ export function buildRepoFormData({
       }
     });
   };
- if (product) {
+  if (product) {
     fd.append("product", String(product).toLowerCase());
   }
   // base + vehicle
@@ -278,7 +285,7 @@ export function createResetForm(api) {
   } = api;
 
   return () => {
-    try { Keyboard?.dismiss?.(); } catch {}
+    try { Keyboard?.dismiss?.(); } catch { }
 
     const {
       setMobile, setPanNumber, setPartnerLoanId, setVehicleNumber, setCustomerName,
@@ -314,7 +321,7 @@ export function createResetForm(api) {
     if (lastFetchRef?.current) lastFetchRef.current = { phone: '', pan: '', pli: '' };
 
     // jump to top
-    try { scrollRef?.current?.scrollTo?.({ y: 0, animated: true }); } catch {}
+    try { scrollRef?.current?.scrollTo?.({ y: 0, animated: true }); } catch { }
   };
 }
 
