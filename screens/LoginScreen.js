@@ -13,8 +13,7 @@ import { getCurrentLocation } from "../components/function";
 import { BACKEND_BASE_URL } from "@env";
 import Loader from "../components/loader";
 import { startTracking } from '../components/bgTracking';
-import { nanoid } from 'nanoid';
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,19 +37,19 @@ export default function LoginScreen({ navigation }) {
         // longitude: location?.longitude ?? null,
         timestamp: location?.timestamp ?? new Date().toISOString(),
       });
-
       if (res.data.token) {
         await AsyncStorage.setItem("token", res.data.token);
         await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
         await AsyncStorage.setItem("permissions", JSON.stringify(res.data.user?.permissions));
 
         // Generate unique sessionId for each login
-        const sessionId = nanoid(5); // ~5 chars
+        const sessionId = Math.random().toString(36).slice(2, 7);
+        console.log("sessionId", sessionId)
         await AsyncStorage.setItem('sessionId', sessionId);
 
         console.log("starting watch");
-        await startTracking(300000,"Login"); // Start location tracking after login
-        navigation.replace("MainDrawer");
+        await startTracking(300000, "Login"); // Start location tracking after login
+        onLoginSuccess();
       } else {
         Alert.alert("Error", "No token received from server");
       }

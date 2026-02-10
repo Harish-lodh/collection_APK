@@ -8,9 +8,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function CustomDrawer(props) {
   const handleLogout = async () => {
-    await AsyncStorage.removeItem("token");
-    await AsyncStorage.removeItem("user");
-    props.navigation.replace("Login");
+    await AsyncStorage.clear();
+
+    if (typeof onLogout === 'function') {
+      onLogout(); // 🔥 THIS updates App.tsx state
+    }
   };
 
   return (
@@ -51,8 +53,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    padding:4,
-    paddingVertical:16
+    padding: 4,
+    paddingVertical: 16
   },
   scrollContainer: {
     paddingTop: 20,
@@ -65,7 +67,7 @@ const styles = StyleSheet.create({
   linkContainer: {
     padding: 12,
     marginBottom: 16,
-      borderBottomWidth: 1,
+    borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
   },
   linkText: {

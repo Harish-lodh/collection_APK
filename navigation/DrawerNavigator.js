@@ -42,14 +42,19 @@ import RepossessionScreen from "../screens/RepossessionScreen";
 import CustomerVisitScreen from "../screens/MyVisits";
 const Drawer = createDrawerNavigator();
 
-export default function DrawerNavigator() {
+export default function DrawerNavigator({ onLogout }) {
   return (
     <Drawer.Navigator
       initialRouteName="Home"
-      drawerContent={(props) => <CustomDrawer {...props} />}
+      // drawerContent={(props) => <CustomDrawer {...props} />}
       screenOptions={{ headerTitleAlign: "center", drawerType: "front" }}
+      drawerContent={(props) => (
+        <CustomDrawer {...props} onLogout={onLogout} />
+      )}
     >
-      <Drawer.Screen name="Home" component={HomeScreen} />
+      <Drawer.Screen name="Home">
+        {(props) => <HomeScreen {...props} onLogout={onLogout} />}
+      </Drawer.Screen>
       <Drawer.Screen name="CashReceipt" component={CashReceiptScreen} options={{ title: "Receipt" }} />
       <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} />
       <Drawer.Screen name="Pending Cash Receipt" component={PendingCashPaymentsScreen} />

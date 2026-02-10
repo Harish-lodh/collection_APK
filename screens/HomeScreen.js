@@ -16,37 +16,37 @@ import logo from "../assets/icons/icon.png";
 import HeyEvscanner from "../assets/images/HeyEv_scanner.jpg";
 import Scanner from "../assets/images/Scanner.png";
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ onLogout }) {
   const [user, setUser] = useState(null);
   const [scanner, setScanner] = useState(Scanner);
   const [loggingOut, setLoggingOut] = useState(false);
 
-useEffect(() => {
-  const fetchUser = async () => {
-    try {
-      const savedUser = await AsyncStorage.getItem("user");
-      const permissions = await AsyncStorage.getItem("permissions");
-      const parsed = permissions ? JSON.parse(permissions) : [];
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const savedUser = await AsyncStorage.getItem("user");
+        const permissions = await AsyncStorage.getItem("permissions");
+        const parsed = permissions ? JSON.parse(permissions) : [];
 
-      // Normalize permission strings to lowercase
-      const normalized = parsed.map(p => p.toLowerCase());
-      console.log("Loaded permissions:", normalized);
+        // Normalize permission strings to lowercase
+        const normalized = parsed.map(p => p.toLowerCase());
+        console.log("Loaded permissions:", normalized);
 
-      // Dynamically change scanner based on permission
-      if (normalized.includes("heyev")) {
-        setScanner(HeyEvscanner);
-      } else {
-        setScanner(Scanner);
+        // Dynamically change scanner based on permission
+        if (normalized.includes("heyev")) {
+          setScanner(HeyEvscanner);
+        } else {
+          setScanner(Scanner);
+        }
+
+        if (savedUser) setUser(JSON.parse(savedUser));
+      } catch (err) {
+        console.error("Failed to load user", err);
       }
+    };
 
-      if (savedUser) setUser(JSON.parse(savedUser));
-    } catch (err) {
-      console.error("Failed to load user", err);
-    }
-  };
-
-  fetchUser();
-}, []);
+    fetchUser();
+  }, []);
 
 
   const performLogout = async () => {
@@ -93,13 +93,15 @@ useEffect(() => {
       }
 
       try {
-        await AsyncStorage.multiRemove(["sessionId", "token", "user"]);
+        await AsyncStorage.clear();
       } catch (e) {
         console.warn("Error clearing storage:", e);
       }
 
       setLoggingOut(false);
-      navigation.replace("Login");
+      if (typeof onLogout === 'function') {
+        onLogout();
+      }
     }
   };
 
