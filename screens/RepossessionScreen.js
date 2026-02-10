@@ -646,8 +646,6 @@
 
 
 
-
-// new code
 // src/screens/RepossessionScreen.jsx
 import React, { useMemo, useState, useRef, useEffect, Suspense, lazy } from 'react';
 import {
@@ -657,7 +655,6 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
-  Image,
   Alert,
   Platform,
   Keyboard,
@@ -675,13 +672,22 @@ import { getAuthToken } from '../components/authToken';
 import { getCurrentLocation } from '../components/function';
 import { BACKEND_BASE_URL } from '@env';
 
-// utils
+// Constants & helpers
 import {
-  REPO_REASONS, VEHICLE_CONDITION, PLACES,
-  MIN_REQUIRED_PHOTOS, MAX_ALLOWED_PHOTOS,
-  PAN_REGEX, PHONE_REGEX, MIN_PARTNER_ID_LENGTH,
-  detectType, photoCount as countPhotos, canAddMore,
-  useDebouncedCallback, buildRepoFormData, createResetForm
+  REPO_REASONS,
+  VEHICLE_CONDITION,
+  PLACES,
+  MIN_REQUIRED_PHOTOS,
+  MAX_ALLOWED_PHOTOS,
+  PAN_REGEX,
+  PHONE_REGEX,
+  MIN_PARTNER_ID_LENGTH,
+  detectType,
+  photoCount as countPhotos,
+  canAddMore,
+  useDebouncedCallback,
+  buildRepoFormData,
+  createResetForm,
 } from '../utils/index';
 
 const LabeledPhotoTile = lazy(() => import('../components/LabeledPhotoTile'));
@@ -689,6 +695,7 @@ const LabeledPhotoTile = lazy(() => import('../components/LabeledPhotoTile'));
 export default function RepossessionScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [autoFetching, setAutoFetching] = useState(false);
+  const [autoFetchBusyKey, setAutoFetchBusyKey] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
   // Product selection
@@ -698,6 +705,7 @@ export default function RepossessionScreen() {
   // Search fields
   const [mobile, setMobile] = useState('');
   const [panNumber, setPanNumber] = useState('');
+  const [lanId, setLanId] = useState('');           // ← NEW FIELD
   const [partnerLoanId, setPartnerLoanId] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -734,14 +742,14 @@ export default function RepossessionScreen() {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
 
-  // Photos: { [id]: { uri, type, fileName, label } }
+  // Photos
   const [photos, setPhotos] = useState({});
 
-  // refs
+  // Refs
   const scrollRef = useRef(null);
-  const lastFetchRef = useRef({ phone: '', pan: '', pli: '' });
+  const lastFetchRef = useRef({ phone: '', pan: '', lan: '', pli: '' });
 
-  // Load permissions from AsyncStorage
+  // Load permissions
   useEffect(() => {
     const loadPermissions = async () => {
       try {
@@ -768,7 +776,7 @@ export default function RepossessionScreen() {
     [permissions]
   );
 
-  // helpers
+  // Helpers
   const photoCount = () => countPhotos(photos);
   const canAdd = () => canAddMore(photos);
 
@@ -778,10 +786,11 @@ export default function RepossessionScreen() {
       const lat = loc?.latitude ?? loc?.coords?.latitude;
       const lon = loc?.longitude ?? loc?.coords?.longitude;
       if (typeof lat === 'number' && typeof lon === 'number') {
-        setLatitude(lat); setLongitude(lon);
+        setLatitude(lat);
+        setLongitude(lon);
         return true;
       }
-    } catch { }
+    } catch {}
     return false;
   };
 
@@ -809,7 +818,7 @@ export default function RepossessionScreen() {
           },
         }));
       }
-    } catch { }
+    } catch {}
   };
 
   const pickPhoto = async (id) => {
@@ -823,7 +832,7 @@ export default function RepossessionScreen() {
       const res = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.8,
-        selectionLimit: remaining,        // allow picking many at once
+        selectionLimit: remaining,
         includeBase64: false,
       });
 
@@ -834,7 +843,6 @@ export default function RepossessionScreen() {
       setPhotos((prev) => {
         const next = { ...prev };
         const prefix = id.startsWith('pre_') ? 'pre' : 'post';
-
         assets.forEach((a, idx) => {
           const targetId = idx === 0 ? id : `${prefix}_${Date.now()}_${idx}`;
           next[targetId] = {
@@ -845,14 +853,12 @@ export default function RepossessionScreen() {
             label: prev[targetId]?.label ?? '',
           };
         });
-
         return next;
       });
     } catch (err) {
-      console.warn('pickPhoto multi-select error', err);
+      console.warn('pickPhoto error', err);
     }
   };
-
 
   const handleDateChange = (_e, selectedDate) => {
     setShowDatePicker(false);
@@ -876,7 +882,9 @@ export default function RepossessionScreen() {
   const validateBasics = () => {
     const errors = [];
     if (!product) errors.push('Select product');
-    if (!partnerLoanId && !vehicleNumber) errors.push('Enter Partner Loan ID or Vehicle No');
+    if (!partnerLoanId && !lanId && !vehicleNumber) {
+      errors.push('Enter LAN ID or Partner Loan ID or Vehicle No');
+    }
     if (!repoReason) errors.push('Select repossession reason');
     if (!repoPlace) errors.push('Select place of repossession');
     if (!vehicleCondition) errors.push('Select vehicle condition');
@@ -884,32 +892,56 @@ export default function RepossessionScreen() {
     const preCount = Object.entries(photos).filter(([id, f]) => detectType(id) === 'PRE' && f?.uri).length;
     const postCount = Object.entries(photos).filter(([id, f]) => detectType(id) === 'POST' && f?.uri).length;
 
-    if (preCount < MIN_REQUIRED_PHOTOS) errors.push(`At least ${MIN_REQUIRED_PHOTOS} Pre-Repossession photos are required`);
-    if (postCount < 2) errors.push('At least 2 Post-Repossession photos are required');
+    if (preCount < MIN_REQUIRED_PHOTOS) errors.push(`At least ${MIN_REQUIRED_PHOTOS} Pre-Repossession photos required`);
+    if (postCount < 2) errors.push('At least 2 Post-Repossession photos required');
 
     const unlabeled = Object.entries(photos).filter(([_, f]) => f?.uri && !f?.label?.trim());
-    if (unlabeled.length) errors.push('Please provide labels for all uploaded photos');
+    if (unlabeled.length) errors.push('Please label all uploaded photos');
 
     if (errors.length) {
-      Alert.alert('Missing info', errors.join('\n'));
+      Alert.alert('Missing Information', errors.join('\n'));
       return false;
     }
     return true;
   };
 
-  // reset form (from utils)
   const resetForm = createResetForm({
     Keyboard,
     lastFetchRef,
     scrollRef,
     setters: {
       setProduct,
-      setMobile, setPanNumber, setPartnerLoanId, setVehicleNumber, setCustomerName,
-      setMakeModel, setRegNo, setChassisNo, setEngineNo, setBatteryNo,
-      setRepoDate, setShowDatePicker, setShowTimePicker, setRepoReason, setAgency, setFieldOfficer,
-      setRepoPlace, setVehicleCondition, setInventory, setRemarks,
-      setYardLocation, setYardIncharge, setYardContact, setYardReceipt, setPostRemarks,
-      setLatitude, setLongitude, setPhotos, setEditingId, setAutoFetching,
+      setMobile,
+      setPanNumber,
+      setLanId,              // ← added
+      setPartnerLoanId,
+      setVehicleNumber,
+      setCustomerName,
+      setMakeModel,
+      setRegNo,
+      setChassisNo,
+      setEngineNo,
+      setBatteryNo,
+      setRepoDate,
+      setShowDatePicker,
+      setShowTimePicker,
+      setRepoReason,
+      setAgency,
+      setFieldOfficer,
+      setRepoPlace,
+      setVehicleCondition,
+      setInventory,
+      setRemarks,
+      setYardLocation,
+      setYardIncharge,
+      setYardContact,
+      setYardReceipt,
+      setPostRemarks,
+      setLatitude,
+      setLongitude,
+      setPhotos,
+      setEditingId,
+      setAutoFetching,
     },
   });
 
@@ -918,133 +950,157 @@ export default function RepossessionScreen() {
     setSubmitting(true);
 
     try {
-      // prepare payload before async work
       const payload = {
         product,
-        base: { mobile, panNumber, partnerLoanId, vehicleNumber, customerName },
+        base: { mobile, panNumber, lanId, partnerLoanId, vehicleNumber, customerName }, // ← added lanId
         vehicle: { makeModel, regNo, chassisNo, engineNo, batteryNo },
         meta: { repoDate, repoReason, agency, fieldOfficer, repoPlace, vehicleCondition, inventory, remarks },
         post: { yardLocation, yardIncharge, yardContact, yardReceipt, postRemarks },
         coords: { latitude, longitude },
         photos,
       };
-console.log("product",product)
-      // run location + token fetching in parallel
-      const [_, token] = await Promise.all([
-        captureLocation(),    // updates latitude/longitude in state
-        getAuthToken(),
-      ]);
+
+      const [_, token] = await Promise.all([captureLocation(), getAuthToken()]);
 
       const fd = buildRepoFormData(payload);
 
       await axios.post(`${BACKEND_BASE_URL}/repossession`, fd, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
+          'Content-Type': 'multipart/form-data',
         },
-        timeout: 20000, // optional: fail faster if backend hangs
+        timeout: 20000,
       });
 
-      Alert.alert("Success", "✅ Repossession details submitted.");
+      Alert.alert('Success', 'Repossession details submitted successfully.');
       resetForm();
     } catch (e) {
       const msg =
         e?.response?.data?.error ||
         e?.response?.data?.message ||
-        (typeof e?.message === "string" ? e.message : "Failed to submit");
-      Alert.alert("Error", String(msg));
+        e.message ||
+        'Failed to submit repossession';
+      Alert.alert('Error', msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ------- Auto Fetch -------
-  const [autoFetchBusyKey, setAutoFetchBusyKey] = useState(null); // track which key triggered
-
-const autoFetch = async (params, key) => {
-  if (autoFetching || !product) return; // require a product first
-
-  try {
-    setAutoFetching(true);
-    setAutoFetchBusyKey(key || null);
-
-    const token = await getAuthToken();
-
-    // pick correct URL based on selected product
-    let url;
-    let finalParams = { ...params };
-
-    if (product.toLowerCase() === 'embifi') {
-      url = `${BACKEND_BASE_URL}/embifi/auto-fetch`;
-    } else if (product.toLowerCase() === 'malhotra') {
-      url = 'https://fintreelms.com/api/collection/malhotra/search';
-
-      // map phoneNumber → mobileNumber (only for Malhotra)
-      if (params.phoneNumber) {
-        finalParams = { mobileNumber: params.phoneNumber };
-      }
-    } else {
-      console.warn('Unsupported product selected:', product);
+  // ────────────────────────────────────────────────
+  //  Auto Fetch – single endpoint
+  // ────────────────────────────────────────────────
+  const performAutoFetch = async (searchParams, fieldKey) => {
+    if (!product) {
+      console.log('[AUTO-FETCH] No product selected');
       return;
     }
 
-    console.log('AutoFetch →', product, url, finalParams);
-
-    const resp = await axios.get(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: finalParams,
-    });
-
-    // 🔍 handle both API response formats
-    const data = resp.data?.data || resp.data?.result || [];
-    const rows = Array.isArray(data) ? data : [data];
-    if (!rows.length) return;
-
-    const r = rows[0];
-
-    setCustomerName(r.customerName || r.name || '');
-    setMobile(r.mobileNumber || r.mobile || '');
-    setPanNumber(r.panNumber || '');
-    setPartnerLoanId(r.partnerLoanId || '');
-    if (r.vehicleNumber || r.vehicleNo) {
-      setVehicleNumber(r.vehicleNumber || r.vehicleNo);
+    if (autoFetching) {
+      console.log('[AUTO-FETCH] Already fetching — skipping');
+      return;
     }
-  } catch (err) {
-    console.log('Auto-fetch error:', err?.response?.data || err.message);
-  } finally {
-    setAutoFetching(false);
-    setAutoFetchBusyKey(null);
-  }
-};
 
+    setAutoFetching(true);
+    setAutoFetchBusyKey(fieldKey);
 
-  const debouncedFetchPhone = useDebouncedCallback((phone) => {
-    if (PHONE_REGEX.test(phone) && lastFetchRef.current.phone !== phone) {
-      lastFetchRef.current.phone = phone;
-      autoFetch({ phoneNumber: phone }, 'phone');
+    try {
+      const token = await getAuthToken();
+
+      const url = `${BACKEND_BASE_URL}/lms/user-Details`;
+
+      const params = {
+        ...searchParams,
+        product: product.toLowerCase().trim(),
+      };
+
+      console.log(`[AUTO-FETCH] → ${url}?${new URLSearchParams(params).toString()}`);
+      console.log('[AUTO-FETCH] Params:', params);
+
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
+
+      console.log('[AUTO-FETCH] Status:', response.status);
+
+      const data = response.data?.data || response.data?.result || response.data || [];
+      const records = Array.isArray(data) ? data : [data];
+
+      if (!records.length) {
+        console.log('[AUTO-FETCH] No matching record found');
+        return;
+      }
+
+      const record = records[0];
+      console.log('[AUTO-FETCH] Record found:', record);
+
+      setCustomerName(record.customerName || record.name || record.fullName || '');
+      setPanNumber(record.panNumber || record.pan || '');
+      setLanId(record.lan || record.lanId || record.loanAccountNumber || '');   // ← fill LAN ID
+      setPartnerLoanId(record.partnerLoanId || record.partnerLan || '');
+      setMobile(record.mobileNumber || record.mobile || record.phone || '');
+
+      if (record.vehicleNumber || record.vehicleNo || record.regNo) {
+        setVehicleNumber(record.vehicleNumber || record.vehicleNo || record.regNo || '');
+      }
+    } catch (err) {
+      console.log('[AUTO-FETCH] Failed:', err.message);
+      if (err.response) {
+        console.log('Response data:', err.response.data);
+        console.log('Status:', err.response.status);
+      }
+    } finally {
+      setAutoFetching(false);
+      setAutoFetchBusyKey(null);
     }
-  }, 350);
+  };
 
-  const debouncedFetchPAN = useDebouncedCallback((panClean) => {
-    if (panClean.length === 10 && PAN_REGEX.test(panClean) && lastFetchRef.current.pan !== panClean) {
-      lastFetchRef.current.pan = panClean;
-      autoFetch({ panNumber: panClean }, 'pan');
-    }
-  }, 350);
+  const debouncedFetchPhone = useDebouncedCallback((value) => {
+    if (value.length !== 10 || !PHONE_REGEX.test(value)) return;
+    if (lastFetchRef.current.phone === value) return;
 
-  const debouncedFetchPartnerId = useDebouncedCallback((pli) => {
-    const v = (pli || '').trim();
-    if (v.length >= MIN_PARTNER_ID_LENGTH && lastFetchRef.current.pli !== v) {
-      lastFetchRef.current.pli = v;
-      autoFetch({ partnerLoanId: v }, 'pli');
-    }
-  }, 350);
+    console.log('[PHONE] Debounced fetch:', value);
+    lastFetchRef.current.phone = value;
+    performAutoFetch({ mobileNumber: value }, 'phone');
+  }, 450);
 
-  // PRE / POST entries
+  const debouncedFetchPAN = useDebouncedCallback((value) => {
+    if (value.length !== 10 || !PAN_REGEX.test(value)) return;
+    if (lastFetchRef.current.pan === value) return;
+
+    console.log('[PAN] Debounced fetch:', value);
+    lastFetchRef.current.pan = value;
+    performAutoFetch({ panNumber: value }, 'pan');
+  }, 450);
+
+  const debouncedFetchLAN = useDebouncedCallback((value) => {
+    const trimmed = (value || '').trim();
+    if (trimmed.length < 6) return; // adjust min length as needed
+    if (lastFetchRef.current.lan === trimmed) return;
+
+    console.log('[LAN] Debounced fetch:', trimmed);
+    lastFetchRef.current.lan = trimmed;
+    performAutoFetch({ lan: trimmed }, 'lan'); // change to loanId / lanId if backend expects different key
+  }, 500);
+
+  const debouncedFetchPartnerId = useDebouncedCallback((value) => {
+    const trimmed = (value || '').trim();
+    if (trimmed.length < MIN_PARTNER_ID_LENGTH) return;
+    if (lastFetchRef.current.pli === trimmed) return;
+
+    console.log('[PARTNER ID] Debounced fetch:', trimmed);
+    lastFetchRef.current.pli = trimmed;
+    performAutoFetch({ partnerLoanId: trimmed }, 'pli');
+  }, 500);
+
+  // ────────────────────────────────────────────────
+  //  Photo Sections
+  // ────────────────────────────────────────────────
   const prePhotoEntries = useMemo(
     () => Object.entries(photos).filter(([id]) => id.startsWith('pre_')),
     [photos]
   );
+
   const postPhotoEntries = useMemo(
     () => Object.entries(photos).filter(([id]) => id.startsWith('post_')),
     [photos]
@@ -1072,30 +1128,39 @@ const autoFetch = async (params, key) => {
         keyboardShouldPersistTaps="always"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
         nestedScrollEnabled
-        removeClippedSubviews={false}
       >
         <Text style={styles.h1}>Vehicle Repossession</Text>
 
-        {/* Basic Search */}
+        {/* CUSTOMER SEARCH */}
         <View style={styles.card}>
           <Text style={styles.section}>Enter Customer Details</Text>
 
           <Text style={styles.label}>Product</Text>
-          <AppDropdown
+          <Dropdown
             data={productOptions}
+            labelField="label"
+            valueField="value"
             value={product}
-            onChange={setProduct}
             placeholder="Select product"
+            style={styles.dropdown}
+            placeholderStyle={styles.dropdownPlaceholder}
+            selectedTextStyle={styles.dropdownSelected}
+            onChange={(item) => setProduct(item?.value ?? null)}
+            renderRightIcon={() => <Text style={{ fontSize: 16 }}>▾</Text>}
           />
 
           <Text style={styles.label}>Mobile</Text>
           <TextInput
             style={styles.input}
             value={mobile}
-            onChangeText={(t) => {
-              const digits = t.replace(/[^\d]/g, '').slice(0, 10);
-              setMobile(digits);
-              if (digits.length === 10) debouncedFetchPhone(digits);
+            onChangeText={(text) => {
+              const cleaned = text.replace(/[^0-9]/g, '').slice(0, 10);
+              setMobile(cleaned);
+              if (cleaned.length === 10) {
+                debouncedFetchPhone(cleaned);
+              } else if (lastFetchRef.current.phone) {
+                lastFetchRef.current.phone = '';
+              }
             }}
             keyboardType="phone-pad"
             placeholder="10-digit mobile"
@@ -1107,10 +1172,14 @@ const autoFetch = async (params, key) => {
           <TextInput
             style={styles.input}
             value={panNumber}
-            onChangeText={(t) => {
-              const cleaned = t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+            onChangeText={(text) => {
+              const cleaned = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
               setPanNumber(cleaned);
-              if (cleaned.length === 10) debouncedFetchPAN(cleaned);
+              if (cleaned.length === 10 && PAN_REGEX.test(cleaned)) {
+                debouncedFetchPAN(cleaned);
+              } else if (lastFetchRef.current.pan) {
+                lastFetchRef.current.pan = '';
+              }
             }}
             autoCapitalize="characters"
             placeholder="ABCDE1234F"
@@ -1118,15 +1187,27 @@ const autoFetch = async (params, key) => {
           />
           {autoFetchBusyKey === 'pan' && <ActivityIndicator size="small" style={{ marginTop: 6 }} />}
 
+          <Text style={styles.label}>LAN ID</Text> {/* ← NEW FIELD */}
+          <TextInput
+            style={styles.input}
+            value={lanId}
+            onChangeText={(text) => {
+              const trimmed = text.trim();
+              setLanId(trimmed);
+              debouncedFetchLAN(trimmed);
+            }}
+            placeholder="Enter LAN ID"
+            autoCapitalize="characters"
+          />
+          {autoFetchBusyKey === 'lan' && <ActivityIndicator size="small" style={{ marginTop: 6 }} />}
+
           <Text style={styles.label}>Partner Loan ID</Text>
           <TextInput
             style={styles.input}
             value={partnerLoanId}
-            onChangeText={(v) => {
-              setPartnerLoanId(v);
-              if ((v || '').trim().length >= MIN_PARTNER_ID_LENGTH) {
-                debouncedFetchPartnerId(v);
-              }
+            onChangeText={(text) => {
+              setPartnerLoanId(text);
+              debouncedFetchPartnerId(text);
             }}
             placeholder="Partner Loan ID"
           />
@@ -1146,22 +1227,47 @@ const autoFetch = async (params, key) => {
             style={styles.input}
             value={customerName}
             onChangeText={setCustomerName}
-            placeholder="Auto-filled"
+            placeholder="Auto-filled or manual"
             autoCapitalize="words"
           />
         </View>
 
-        {/* Vehicle Info */}
+        {/* VEHICLE INFO */}
         <View style={styles.card}>
           <Text style={styles.section}>Vehicle</Text>
-          <TextInput style={styles.input} placeholder="Make / Model / Variant" value={makeModel} onChangeText={setMakeModel} />
-          <TextInput style={styles.input} placeholder="Registration No." value={regNo} onChangeText={setRegNo} />
-          <TextInput style={styles.input} placeholder="Chassis No." value={chassisNo} onChangeText={setChassisNo} />
-          <TextInput style={styles.input} placeholder="Engine No." value={engineNo} onChangeText={setEngineNo} />
-          <TextInput style={styles.input} placeholder="Battery No." value={batteryNo} onChangeText={setBatteryNo} />
+          <TextInput
+            style={styles.input}
+            placeholder="Make / Model / Variant"
+            value={makeModel}
+            onChangeText={setMakeModel}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Registration No."
+            value={regNo}
+            onChangeText={setRegNo}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Chassis No."
+            value={chassisNo}
+            onChangeText={setChassisNo}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Engine No."
+            value={engineNo}
+            onChangeText={setEngineNo}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Battery No."
+            value={batteryNo}
+            onChangeText={setBatteryNo}
+          />
         </View>
 
-        {/* Repossession Meta */}
+        {/* REPOSSESSION DETAILS */}
         <View style={styles.card}>
           <Text style={styles.section}>Repossession</Text>
 
@@ -1183,14 +1289,35 @@ const autoFetch = async (params, key) => {
           </View>
 
           {showDatePicker && (
-            <DateTimePicker value={repoDate} mode="date" is24Hour display="default" onChange={handleDateChange} />
+            <DateTimePicker
+              value={repoDate}
+              mode="date"
+              is24Hour
+              display="default"
+              onChange={handleDateChange}
+            />
           )}
           {showTimePicker && (
-            <DateTimePicker value={repoDate} mode="time" is24Hour display="default" onChange={handleTimeChange} />
+            <DateTimePicker
+              value={repoDate}
+              mode="time"
+              is24Hour
+              display="default"
+              onChange={handleTimeChange}
+            />
           )}
 
           <Text style={styles.label}>Reason</Text>
-          <AppDropdown data={REPO_REASONS} value={repoReason} onChange={setRepoReason} placeholder="Select reason" />
+          <Dropdown
+            data={REPO_REASONS}
+            labelField="label"
+            valueField="value"
+            value={repoReason}
+            placeholder="Select reason"
+            style={styles.dropdown}
+            onChange={(item) => setRepoReason(item?.value ?? null)}
+            renderRightIcon={() => <Text style={{ fontSize: 16 }}>▾</Text>}
+          />
 
           <Text style={styles.label}>Agency</Text>
           <TextInput style={styles.input} value={agency} onChangeText={setAgency} placeholder="Agency name" />
@@ -1199,10 +1326,28 @@ const autoFetch = async (params, key) => {
           <TextInput style={styles.input} value={fieldOfficer} onChangeText={setFieldOfficer} placeholder="Field officer" />
 
           <Text style={styles.label}>Place</Text>
-          <AppDropdown data={PLACES} value={repoPlace} onChange={setRepoPlace} placeholder="Select place" />
+          <Dropdown
+            data={PLACES}
+            labelField="label"
+            valueField="value"
+            value={repoPlace}
+            placeholder="Select place"
+            style={styles.dropdown}
+            onChange={(item) => setRepoPlace(item?.value ?? null)}
+            renderRightIcon={() => <Text style={{ fontSize: 16 }}>▾</Text>}
+          />
 
           <Text style={styles.label}>Vehicle Condition</Text>
-          <AppDropdown data={VEHICLE_CONDITION} value={vehicleCondition} onChange={setVehicleCondition} placeholder="Select condition" />
+          <Dropdown
+            data={VEHICLE_CONDITION}
+            labelField="label"
+            valueField="value"
+            value={vehicleCondition}
+            placeholder="Select condition"
+            style={styles.dropdown}
+            onChange={(item) => setVehicleCondition(item?.value ?? null)}
+            renderRightIcon={() => <Text style={{ fontSize: 16 }}>▾</Text>}
+          />
 
           <Text style={styles.label}>Inventory</Text>
           <TextInput
@@ -1223,12 +1368,18 @@ const autoFetch = async (params, key) => {
           />
         </View>
 
-        {/* Post-Repo Info */}
+        {/* POST REPO */}
         <View style={styles.card}>
           <Text style={styles.section}>Post-Repossession</Text>
           <TextInput style={styles.input} value={yardLocation} onChangeText={setYardLocation} placeholder="Yard Location" />
           <TextInput style={styles.input} value={yardIncharge} onChangeText={setYardIncharge} placeholder="Yard In-charge" />
-          <TextInput style={styles.input} value={yardContact} onChangeText={setYardContact} placeholder="Yard Contact" keyboardType="numeric" />
+          <TextInput
+            style={styles.input}
+            value={yardContact}
+            onChangeText={setYardContact}
+            placeholder="Yard Contact"
+            keyboardType="numeric"
+          />
           <TextInput style={styles.input} value={yardReceipt} onChangeText={setYardReceipt} placeholder="Yard Receipt No." />
 
           <Text style={styles.label}>Post-Repossession Remarks</Text>
@@ -1236,12 +1387,12 @@ const autoFetch = async (params, key) => {
             style={[styles.input, styles.textarea]}
             value={postRemarks}
             onChangeText={setPostRemarks}
-            placeholder="Notes after vehicle moved to yard, inventory at yard, condition, etc."
+            placeholder="Notes after vehicle moved to yard..."
             multiline
           />
         </View>
 
-        {/* Photos */}
+        {/* PHOTOS */}
         <View style={styles.card}>
           <Text style={styles.section}>Photos ({photoCount()}/{MAX_ALLOWED_PHOTOS})</Text>
 
@@ -1294,41 +1445,23 @@ const autoFetch = async (params, key) => {
           </View>
 
           <Text style={styles.helper}>
-            Minimum {MIN_REQUIRED_PHOTOS} Pre-Repossession photos and 2 Post-Repossession photos are required.
+            Minimum {MIN_REQUIRED_PHOTOS} Pre-Repossession and 2 Post-Repossession photos required.
           </Text>
         </View>
 
-        {/* Submit */}
+        {/* SUBMIT */}
         <Pressable
           style={[styles.btnPrimary, submitting && { opacity: 0.7 }]}
           onPress={handleSubmit}
           disabled={submitting}
         >
-          <Text style={styles.btnPrimaryText}>
-            {submitting ? 'Submitting...' : 'Submit'}
-          </Text>
+          <Text style={styles.btnPrimaryText}>{submitting ? 'Submitting...' : 'Submit'}</Text>
         </Pressable>
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
-      <Loader visible={submitting} />
-    </SafeAreaView>
-  );
-}
 
-function AppDropdown({ data, value, onChange, placeholder = 'Select' }) {
-  return (
-    <Dropdown
-      data={data}
-      labelField="label"
-      valueField="value"
-      value={value}
-      placeholder={placeholder}
-      style={styles.dropdown}
-      placeholderStyle={styles.dropdownPlaceholder}
-      selectedTextStyle={styles.dropdownSelected}
-      onChange={(item) => onChange(item?.value ?? null)}
-      renderRightIcon={() => <Text style={{ fontSize: 16 }}>▾</Text>}
-    />
+      <Loader visible={submitting || autoFetching} />
+    </SafeAreaView>
   );
 }
