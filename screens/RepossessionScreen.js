@@ -689,6 +689,7 @@ import {
   buildRepoFormData,
   createResetForm,
 } from '../utils/index';
+import apiClient from '../server/apiClient';
 
 const LabeledPhotoTile = lazy(() => import('../components/LabeledPhotoTile'));
 
@@ -964,7 +965,7 @@ export default function RepossessionScreen() {
 
       const fd = buildRepoFormData(payload);
 
-      await axios.post(`${BACKEND_BASE_URL}/repossession`, fd, {
+      await apiClient.post(`/repossession`, fd, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
@@ -972,7 +973,7 @@ export default function RepossessionScreen() {
         timeout: 20000,
       });
 
-      Alert.alert('Success', 'Repossession details submitted successfully.');
+      Alert.alert('Success', '✅Repossession details submitted successfully.');
       resetForm();
     } catch (e) {
       const msg =
