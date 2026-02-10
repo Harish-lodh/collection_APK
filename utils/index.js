@@ -163,63 +163,6 @@ export function useDebouncedCallback(callback, delay = 300) {
   };
 }
 
-// builds a FormData from fields
-// export function buildRepoFormData(payload) {
-//   const {
-//     base, vehicle, meta, post, coords, photos,
-//   } = payload;
-
-//   const fd = new FormData();
-
-//   // base
-//   Object.entries(base || {}).forEach(([k, v]) => {
-//     if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
-//   });
-
-//   // vehicle
-//   Object.entries(vehicle || {}).forEach(([k, v]) => {
-//     if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
-//   });
-
-//   // meta
-//   if (meta?.repoDate instanceof Date && !isNaN(meta.repoDate)) {
-//     fd.append('repoDate', meta.repoDate.toISOString());
-//   }
-//   ['repoReason','agency','fieldOfficer','repoPlace','vehicleCondition','inventory','remarks']
-//     .forEach((k) => {
-//       const v = meta?.[k];
-//       if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
-//     });
-
-//   // post
-//   ['yardLocation','yardIncharge','yardContact','yardReceipt','postRemarks']
-//     .forEach((k) => {
-//       const v = post?.[k];
-//       if (v !== undefined && v !== null && String(v).length) fd.append(k, v);
-//     });
-
-//   // coords
-//   if (typeof coords?.latitude === 'number' && Number.isFinite(coords.latitude)) {
-//     fd.append('latitude', String(coords.latitude));
-//   }
-//   if (typeof coords?.longitude === 'number' && Number.isFinite(coords.longitude)) {
-//     fd.append('longitude', String(coords.longitude));
-//   }
-
-//   // photos
-//   const entries = Object.entries(photos || {}).filter(([, f]) => !!f?.uri);
-//   entries.forEach(([id, file]) => {
-//     fd.append('photos', {
-//       uri: file.uri,
-//       name: file.fileName || `${file.label || id}.jpg`,
-//       type: file.type || 'image/jpeg',
-//     });
-//     fd.append('photoTypes[]', detectType(id));
-//     fd.append('photoLabels[]', file.label || id);
-//   });
-
-//   return fd;
-// }
 export function buildRepoFormData({
   product,
   base = {},

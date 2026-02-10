@@ -7,12 +7,11 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function CustomDrawer(props) {
+  const { onLogout, navigation } = props; // ✅ FIX
   const handleLogout = async () => {
     await AsyncStorage.clear();
 
-    if (typeof onLogout === 'function') {
-      onLogout(); // 🔥 THIS updates App.tsx state
-    }
+    onLogout?.();
   };
 
   return (

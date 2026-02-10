@@ -786,14 +786,18 @@ export default function RepossessionScreen() {
       const loc = await getCurrentLocation();
       const lat = loc?.latitude ?? loc?.coords?.latitude;
       const lon = loc?.longitude ?? loc?.coords?.longitude;
-      if (typeof lat === 'number' && typeof lon === 'number') {
+
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
         setLatitude(lat);
         setLongitude(lon);
-        return true;
+        return { latitude: lat, longitude: lon }; // ✅ IMPORTANT
       }
-    } catch {}
-    return false;
+    } catch (e) {
+      console.log('Location error:', e);
+    }
+    return null;
   };
+
 
   const askPhotoSource = (id) => {
     Alert.alert('Add Photo', '', [
@@ -819,7 +823,7 @@ export default function RepossessionScreen() {
           },
         }));
       }
-    } catch {}
+    } catch { }
   };
 
   const pickPhoto = async (id) => {
@@ -946,24 +950,77 @@ export default function RepossessionScreen() {
     },
   });
 
+  // const handleSubmit = async () => {
+  //   if (!validateBasics()) return;
+  //   setSubmitting(true);
+
+  //   try {
+  //     const payload = {
+  //       product,
+  //       base: { mobile, panNumber, lanId, partnerLoanId, vehicleNumber, customerName }, // ← added lanId
+  //       vehicle: { makeModel, regNo, chassisNo, engineNo, batteryNo },
+  //       meta: { repoDate, repoReason, agency, fieldOfficer, repoPlace, vehicleCondition, inventory, remarks },
+  //       post: { yardLocation, yardIncharge, yardContact, yardReceipt, postRemarks },
+  //       coords: { latitude, longitude },
+  //       photos,
+  //     };
+
+  //     const [_, token] = await Promise.all([captureLocation(), getAuthToken()]);
+
+  //     const fd = buildRepoFormData(payload);
+
+  //     await apiClient.post(`/repossession`, fd, {
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //         'Content-Type': 'multipart/form-data',
+  //       },
+  //       timeout: 20000,
+  //     });
+
+  //     Alert.alert('Success', '✅Repossession details submitted successfully.');
+  //     resetForm();
+  //   } catch (e) {
+  //     const msg =
+  //       e?.response?.data?.error ||
+  //       e?.response?.data?.message ||
+  //       e.message ||
+  //       'Failed to submit repossession';
+  //     Alert.alert('Error', msg);
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
   const handleSubmit = async () => {
     if (!validateBasics()) return;
     setSubmitting(true);
 
     try {
+      // 1️⃣ Get location
+      const coords = await captureLocation();
+
+      if (!coords) {
+        Alert.alert('Location Error', 'Unable to fetch GPS location');
+        return;
+      }
+
+      // 2️⃣ Token
+      const token = await getAuthToken();
+
+      // 3️⃣ Build payload using RETURNED coords (not state)
       const payload = {
         product,
-        base: { mobile, panNumber, lanId, partnerLoanId, vehicleNumber, customerName }, // ← added lanId
+        base: { mobile, panNumber, lanId, partnerLoanId, vehicleNumber, customerName },
         vehicle: { makeModel, regNo, chassisNo, engineNo, batteryNo },
         meta: { repoDate, repoReason, agency, fieldOfficer, repoPlace, vehicleCondition, inventory, remarks },
         post: { yardLocation, yardIncharge, yardContact, yardReceipt, postRemarks },
-        coords: { latitude, longitude },
+        coords, // ✅ FIXED
         photos,
       };
 
-      const [_, token] = await Promise.all([captureLocation(), getAuthToken()]);
-
       const fd = buildRepoFormData(payload);
+
+      // 🔍 DEBUG (optional but recommended once)
+      console.log('Submitting lat/lon:', coords);
 
       await apiClient.post(`/repossession`, fd, {
         headers: {
@@ -974,18 +1031,17 @@ export default function RepossessionScreen() {
       });
 
       Alert.alert('Success', '✅Repossession details submitted successfully.');
+
       resetForm();
+      setLanId('');
+      lastFetchRef.current.lan = '';
     } catch (e) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.message ||
-        e.message ||
-        'Failed to submit repossession';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', e?.response?.data?.message || 'Failed to submit repossession');
     } finally {
       setSubmitting(false);
     }
   };
+
 
   // ────────────────────────────────────────────────
   //  Auto Fetch – single endpoint
