@@ -110,7 +110,7 @@ const LoanDetailsTable = ({ userData }) => {
       ))}
 
       {/* Additional fields not in groups */}
-      {Object.keys(userData).some((key) => !fieldGroups.some((g) => g.fields.includes(key))) && (
+      {/* {Object.keys(userData).some((key) => !fieldGroups.some((g) => g.fields.includes(key))) && (
         <View style={tableStyles.section}>
           <Text style={tableStyles.sectionTitle}>Additional Information</Text>
           <View style={tableStyles.table}>
@@ -120,7 +120,7 @@ const LoanDetailsTable = ({ userData }) => {
             })}
           </View>
         </View>
-      )}
+      )} */}
     </View>
   );
 };
