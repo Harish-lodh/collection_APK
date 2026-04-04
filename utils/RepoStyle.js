@@ -1,6 +1,4 @@
-
-
-import {StyleSheet} from 'react-native'
+import { StyleSheet, Platform } from 'react-native';
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#f6f8fb' },
@@ -171,6 +169,5 @@ const styles = StyleSheet.create({
   dropdownPlaceholder: { color: '#777', fontSize: 14 },
   dropdownSelected: { color: '#111', fontSize: 14 },
 });
-
 
 export default styles;

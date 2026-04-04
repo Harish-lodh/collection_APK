@@ -15,13 +15,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { fetchPendingCashPayments } from '../utils/index.js';
 
-const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const formatDate = (d) => {
+const inr = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+});
+const formatDate = d => {
   if (!d) return '-';
   // supports "YYYY-MM-DD" or ISO strings
   const dt = new Date(d);
   if (isNaN(dt)) return d;
-  return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return dt.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 };
 
 export default function PendingCashPaymentsScreen() {
@@ -51,12 +59,18 @@ export default function PendingCashPaymentsScreen() {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const collectedBy = await getCollectorFromStorage();
-      const list = await fetchPendingCashPayments(collectedBy);
+      // const collectedBy = await getCollectorFromStorage();
+      const raw = await AsyncStorage.getItem('user');
+      const user = raw ? JSON.parse(raw) : null;
+
+      const list = await fetchPendingCashPayments(user?.id ?? null);
       setItems(Array.isArray(list) ? list : []);
     } catch (e) {
       console.error('Fetch pending list error:', e);
-      Alert.alert('Failed to load', 'Could not load pending payments. Please try again.');
+      Alert.alert(
+        'Failed to load',
+        'Could not load pending payments. Please try again.',
+      );
     } finally {
       if (isRefresh) setRefreshing(false);
       else setLoading(false);
@@ -70,9 +84,14 @@ export default function PendingCashPaymentsScreen() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((it) =>
-      String(it.customerName || '').toLowerCase().includes(q) ||
-      String(it.loanId || '').toLowerCase().includes(q)
+    return items.filter(
+      it =>
+        String(it.customerName || '')
+          .toLowerCase()
+          .includes(q) ||
+        String(it.loanId || '')
+          .toLowerCase()
+          .includes(q),
     );
   }, [items, query]);
 
@@ -81,15 +100,19 @@ export default function PendingCashPaymentsScreen() {
   const renderItem = ({ item }) => (
     <View style={s.card}>
       <View style={s.cardHeader}>
-        <Text style={s.name} numberOfLines={1}>{item.customerName || '-'}</Text>
+        <Text style={s.name} numberOfLines={1}>
+          {item.customerName || '-'}
+        </Text>
 
         {/* Product Badge */}
-        <View style={[
-          s.productBadge,
-          item.product === 'malhotra' ? s.malhotra : s.embifi
-        ]}>
+        <View
+          style={[
+            s.productBadge,
+            item.product === 'malhotra' ? s.malhotra : s.embifi,
+          ]}
+        >
           <Text style={s.productText}>
-            {item.product === 'malhotra' ? 'Malhotra' : 'Embifi'}
+            {item.product}
           </Text>
         </View>
 
@@ -99,7 +122,6 @@ export default function PendingCashPaymentsScreen() {
         </View>
       </View>
 
-
       <View style={s.row}>
         <Text style={s.label}>LAN</Text>
         <Text style={s.value}>{item.loanId || '-'}</Text>
@@ -107,7 +129,9 @@ export default function PendingCashPaymentsScreen() {
 
       <View style={s.row}>
         <Text style={s.label}>Amount</Text>
-        <Text style={[s.value, s.amount]}>{inr.format(Number(item.amount || 0))}</Text>
+        <Text style={[s.value, s.amount]}>
+          {inr.format(Number(item.amount || 0))}
+        </Text>
       </View>
 
       <View style={s.row}>
@@ -127,12 +151,17 @@ export default function PendingCashPaymentsScreen() {
 
       <View style={s.actions}>
         <Pressable
-          onPress={() => navigation.navigate('PaymentImage2', { payment: item })}
+          onPress={() =>
+            navigation.navigate('PaymentImage2', { payment: item })
+          }
           style={({ pressed }) => [s.btnPrimary, pressed && s.btnPressed]}
         >
           <Text style={s.btnPrimaryText}>View / Add Receipt Image</Text>
         </Pressable>
-        <Pressable onPress={onRefresh} style={({ pressed }) => [s.btnGhost, pressed && s.btnGhostPressed]}>
+        <Pressable
+          onPress={onRefresh}
+          style={({ pressed }) => [s.btnGhost, pressed && s.btnGhostPressed]}
+        >
           <Text style={s.btnGhostText}>Refresh</Text>
         </Pressable>
       </View>
@@ -168,16 +197,29 @@ export default function PendingCashPaymentsScreen() {
 
       <FlatList
         data={filtered}
-         keyExtractor={(it) => `${it.product}-${it.id}`}
+        keyExtractor={it => `${it.product}-${it.id}`}
         renderItem={renderItem}
-        contentContainerStyle={filtered.length === 0 ? s.emptyPad : { paddingHorizontal: 12, paddingBottom: 16 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={
+          filtered.length === 0
+            ? s.emptyPad
+            : { paddingHorizontal: 12, paddingBottom: 16 }
+        }
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={s.empty}>
             <Text style={s.emptyEmoji}>🎉</Text>
             <Text style={s.emptyTitle}>All caught up</Text>
             <Text style={s.muted}>No pending second images.</Text>
-            <Pressable onPress={onRefresh} style={({ pressed }) => [s.btnGhost, pressed && s.btnGhostPressed, { marginTop: 12 }]}>
+            <Pressable
+              onPress={onRefresh}
+              style={({ pressed }) => [
+                s.btnGhost,
+                pressed && s.btnGhostPressed,
+                { marginTop: 12 },
+              ]}
+            >
               <Text style={s.btnGhostText}>Reload</Text>
             </Pressable>
           </View>
@@ -190,7 +232,12 @@ export default function PendingCashPaymentsScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F6F7FB' },
   header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  title: { fontSize: 20, fontWeight: '700', color: '#111827', marginVertical: 8 },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginVertical: 8,
+  },
   subtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
   searchWrap: { paddingHorizontal: 16, paddingVertical: 8 },
   search: {
@@ -215,9 +262,25 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  name: { fontSize: 16, fontWeight: '700', color: '#111827', flex: 1, marginRight: 8 },
-  badge: { backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  badge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
   badgeText: { color: '#92400E', fontWeight: '600', fontSize: 12 },
 
   row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
@@ -247,29 +310,38 @@ const s = StyleSheet.create({
   btnPressed: { opacity: 0.85 },
   btnGhostPressed: { backgroundColor: '#F3F4F6' },
 
-  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F6F7FB' },
+  centerFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F6F7FB',
+  },
   muted: { color: '#6B7280', marginTop: 6 },
   emptyPad: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24 },
   empty: { alignItems: 'center' },
   emptyEmoji: { fontSize: 42, marginBottom: 6 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
+  },
 
   productBadge: {
-  marginRight: 6,
-  paddingHorizontal: 10,
-  paddingVertical: 4,
-  borderRadius: 999,
-},
-productText: {
-  fontSize: 12,
-  fontWeight: '600',
-  color: 'white',
-},
-embifi: {
-  backgroundColor: '#2563EB', // Blue
-},
-malhotra: {
-  backgroundColor: '#059669', // Green
-},
-
+    marginRight: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  productText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  embifi: {
+    backgroundColor: '#2563EB', // Blue
+  },
+  malhotra: {
+    backgroundColor: '#059669', // Green
+  },
 });

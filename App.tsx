@@ -67,7 +67,6 @@
 //   );
 // }
 
-
 import 'react-native-reanimated';
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'react-native';
@@ -77,6 +76,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import LoginScreen from './screens/LoginScreen';
 import DrawerNavigator from './navigation/DrawerNavigator';
+import PaymentImage2Screen from './screens/PaymentImage2Screen';
 import Loader from './components/loader';
 import { startTracking } from './components/bgTracking';
 
@@ -151,6 +151,12 @@ const App = () => {
               )}
             </Stack.Screen>
           )}
+
+          <Stack.Screen
+            name="PaymentImage2"
+            component={PaymentImage2Screen}
+            options={{ headerShown: true, title: 'Pending receipt' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </>
