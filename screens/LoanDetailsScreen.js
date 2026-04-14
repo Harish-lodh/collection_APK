@@ -20,7 +20,7 @@ import { Dropdown } from 'react-native-element-dropdown';
 import Loader from '../components/loader';
 import apiClient from '../server/apiClient';
 // Enhanced Table Component
-const LoanDetailsTable = ({ userData, onPayPress, isMalhotra }) => {
+const LoanDetailsTable = ({ userData, onPayPress }) => {
   if (!userData) return null;
 
   // Field labels mapping for better display
@@ -131,7 +131,7 @@ const LoanDetailsTable = ({ userData, onPayPress, isMalhotra }) => {
         </View>
       )} */}
 
-      {isMalhotra && userData && userData.lan && (
+      {userData && userData.lan && (
         <TouchableOpacity
           style={tableStyles.payButton}
           onPress={() => onPayPress && onPayPress(userData)}
@@ -413,7 +413,6 @@ export default function LoanDetailsScreen() {
         <LoanDetailsTable
           userData={userData}
           onPayPress={() => handlePayPress(userData)}
-          isMalhotra={selectedProduct === 'malhotra'}
         />
       </ScrollView>
 
