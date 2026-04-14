@@ -1,7 +1,5 @@
-
-
-
 import React, { useState, useEffect } from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -22,7 +20,7 @@ import { Dropdown } from 'react-native-element-dropdown';
 import Loader from '../components/loader';
 import apiClient from '../server/apiClient';
 // Enhanced Table Component
-const LoanDetailsTable = ({ userData }) => {
+const LoanDetailsTable = ({ userData, onPayPress, isMalhotra }) => {
   if (!userData) return null;
 
   // Field labels mapping for better display
@@ -47,7 +45,12 @@ const LoanDetailsTable = ({ userData }) => {
     if (value === null || value === undefined) return 'N/A';
 
     // Format monetary values
-    if (key === 'pos' || key === 'overdue' || key === 'approvedLoanAmount' || key === 'emiAmount') {
+    if (
+      key === 'pos' ||
+      key === 'overdue' ||
+      key === 'approvedLoanAmount' ||
+      key === 'emiAmount'
+    ) {
       const num = Number(value);
       return Number.isFinite(num) ? `₹${num.toFixed(2)}` : String(value);
     }
@@ -81,13 +84,15 @@ const LoanDetailsTable = ({ userData }) => {
   ];
 
   // Helper to render rows
-  const renderRow = (key) => {
+  const renderRow = key => {
     // protect against nested objects
     const value = userData?.[key];
     return (
       <View key={key} style={tableStyles.row}>
         <View style={tableStyles.labelCell}>
-          <Text style={tableStyles.cellLabel}>{fieldLabels[key] || (key.charAt(0).toUpperCase() + key.slice(1))}</Text>
+          <Text style={tableStyles.cellLabel}>
+            {fieldLabels[key] || key.charAt(0).toUpperCase() + key.slice(1)}
+          </Text>
         </View>
         <View style={tableStyles.valueCell}>
           <Text style={tableStyles.cellValue}>{formatValue(key, value)}</Text>
@@ -104,7 +109,11 @@ const LoanDetailsTable = ({ userData }) => {
         <View key={groupIndex} style={tableStyles.section}>
           <Text style={tableStyles.sectionTitle}>{group.title}</Text>
           <View style={tableStyles.table}>
-            {group.fields.map((field) => userData && userData.hasOwnProperty(field) ? renderRow(field) : null)}
+            {group.fields.map(field =>
+              userData && userData.hasOwnProperty(field)
+                ? renderRow(field)
+                : null,
+            )}
           </View>
         </View>
       ))}
@@ -121,11 +130,22 @@ const LoanDetailsTable = ({ userData }) => {
           </View>
         </View>
       )} */}
+
+      {isMalhotra && userData && userData.lan && (
+        <TouchableOpacity
+          style={tableStyles.payButton}
+          onPress={() => onPayPress && onPayPress(userData)}
+        >
+          <Text style={tableStyles.payButtonText}>Pay</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 export default function LoanDetailsScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
   const [searchType, setSearchType] = useState(null);
   const [searchValue, setSearchValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -157,7 +177,7 @@ export default function LoanDetailsScreen() {
         const user = JSON.parse(storedUser);
         if (user && Array.isArray(user.permissions)) {
           // Map permissions to dropdown items, assuming permissions is array of strings like ['embifi', 'malhotra']
-          const productItems = user.permissions.map((perm) => ({
+          const productItems = user.permissions.map(perm => ({
             label: perm.charAt(0).toUpperCase() + perm.slice(1),
             value: perm,
           }));
@@ -187,220 +207,262 @@ export default function LoanDetailsScreen() {
     }
   };
 
-//   const handleSearch = async () => {
-//     if (!selectedProduct || !searchType || !searchValue.trim()) {
-//       alert('Please select a product, search type and enter a value');
-//       return;
-//     }
+  //   const handleSearch = async () => {
+  //     if (!selectedProduct || !searchType || !searchValue.trim()) {
+  //       alert('Please select a product, search type and enter a value');
+  //       return;
+  //     }
 
-//     setIsLoading(true);
-//     setUserData(null);
-//     setSearchResults([]);
-//     setModalVisible(false);
+  //     setIsLoading(true);
+  //     setUserData(null);
+  //     setSearchResults([]);
+  //     setModalVisible(false);
 
-//     // let apiUrl;
-//     console.log(selectedProduct)
+  //     // let apiUrl;
+  //     console.log(selectedProduct)
 
-//   //   apiUrl = `${BACKEND_BASE_URL}/lms/user-Details`;
-//   // console.log("api",apiUrl)
-//   try {
-//     const response = await apiClient.get('/lms/user-Details', {
-//       params: {
-//         [searchType]: searchValue.trim(),
-//         products: selectedProduct
-//       },
-//     });
-//     console.log(response)
-//     const data = response.data?.data ?? [];
+  //   //   apiUrl = `${BACKEND_BASE_URL}/lms/user-Details`;
+  //   // console.log("api",apiUrl)
+  //   try {
+  //     const response = await apiClient.get('/lms/user-Details', {
+  //       params: {
+  //         [searchType]: searchValue.trim(),
+  //         products: selectedProduct
+  //       },
+  //     });
+  //     console.log(response)
+  //     const data = response.data?.data ?? [];
 
-//     if (data.length === 0) {
-//       alert('No data found');
-//     } else if (data.length === 1) {
-//       // Single match -> auto-select
-//       setUserData(data[0]);
-//     } else {
-//       // Multiple matches -> let user choose
-//       setSearchResults(data);
-//       setModalVisible(true);
-//     }
-//   } catch (error) {
-//     if (error.response?.status === 404) {
-//       alert('No data found');
-//     } else {
-//       console.error('API error:', error);
-//       alert('Failed to fetch user data.');
-//     }
-//   } finally {
-//     setIsLoading(false);
-//   }
-// };
+  //     if (data.length === 0) {
+  //       alert('No data found');
+  //     } else if (data.length === 1) {
+  //       // Single match -> auto-select
+  //       setUserData(data[0]);
+  //     } else {
+  //       // Multiple matches -> let user choose
+  //       setSearchResults(data);
+  //       setModalVisible(true);
+  //     }
+  //   } catch (error) {
+  //     if (error.response?.status === 404) {
+  //       alert('No data found');
+  //     } else {
+  //       console.error('API error:', error);
+  //       alert('Failed to fetch user data.');
+  //     }
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
+  const handleSearch = async () => {
+    if (!selectedProduct || !searchType || !searchValue.trim()) {
+      alert('Please select a product, search type, and enter a value');
+      return;
+    }
 
-const handleSearch = async () => {
-  if (!selectedProduct || !searchType || !searchValue.trim()) {
-    alert('Please select a product, search type, and enter a value');
-    return;
-  }
+    setIsLoading(true);
+    setUserData(null);
+    setSearchResults([]);
+    setModalVisible(false);
 
-  setIsLoading(true);
-  setUserData(null);
-  setSearchResults([]);
-  setModalVisible(false);
+    try {
+      // Log the API client to debug
+      console.log(apiClient); // Ensure it is properly initialized
 
-  try {
-    // Log the API client to debug
-    console.log(apiClient); // Ensure it is properly initialized
+      const response = await apiClient.get('/lms/user-Details', {
+        params: {
+          product: selectedProduct, // send the selected product
+          [searchType]: searchValue.trim(), // send the dynamic search type
+        },
+      });
 
-    const response = await apiClient.get('/lms/user-Details', {
-      params: {
-        product: selectedProduct, // send the selected product
-        [searchType]: searchValue.trim(), // send the dynamic search type
-      },
+      console.log(response); // Debugging API response
+
+      const data = response.data?.data ?? []; // Extract data from response
+
+      if (data.length === 0) {
+        alert('No data found');
+      } else if (data.length === 1) {
+        // Auto-select when one result is found
+        setUserData(data[0]);
+      } else {
+        // Show modal when multiple results are found
+        setSearchResults(data);
+        setModalVisible(true);
+      }
+    } catch (error) {
+      if (error.response?.status === 404) {
+        alert('No data found');
+      } else {
+        console.error('API error:', error);
+        alert('Failed to fetch user data.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const selectResult = item => {
+    setUserData(item);
+    setModalVisible(false);
+    setSearchResults([]);
+  };
+
+  const handlePayPress = item => {
+    if (!item || !item.lan) {
+      alert('No loan account found');
+      return;
+    }
+    navigation.navigate('Payment', {
+      loanData: { ...item, product: selectedProduct },
     });
+  };
 
-    console.log(response); // Debugging API response
-
-    const data = response.data?.data ?? []; // Extract data from response
-
-    if (data.length === 0) {
-      alert('No data found');
-    } else if (data.length === 1) {
-      // Auto-select when one result is found
-      setUserData(data[0]);
-    } else {
-      // Show modal when multiple results are found
-      setSearchResults(data);
-      setModalVisible(true);
+  React.useEffect(() => {
+    if (route.params?.refresh) {
+      setUserData(prev => ({
+        ...prev,
+        ...(route.params.paidAmount && { paidAmount: route.params.paidAmount }),
+      }));
+      navigation.setParams({ refresh: false, paidAmount: null });
     }
-  } catch (error) {
-    if (error.response?.status === 404) {
-      alert('No data found');
-    } else {
-      console.error('API error:', error);
-      alert('Failed to fetch user data.');
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  }, [route.params?.refresh]);
 
-const selectResult = (item) => {
-  setUserData(item);
-  setModalVisible(false);
-  setSearchResults([]);
-};
-
-const renderResultRow = ({ item }) => (
-  <TouchableOpacity
-    style={resultStyles.row}
-    onPress={() => selectResult(item)}
-  >
-    <View style={{ flex: 1 }}>
-      <Text style={resultStyles.name}>
-        {item.customerName || item.name || 'Unknown name'}
-      </Text>
-      <Text style={resultStyles.sub}>
-        {item.mobileNumber || item.mobile || 'No mobile'} • {item.lan ? `LAN: ${item.lan}` : ''}
-      </Text>
-    </View>
-  </TouchableOpacity>
-);
-
-return (
-  <View style={{ flex: 1 }}>
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Loan Details Search</Text>
-
-      <View style={styles.field}>
-        <Text style={styles.label}>Select Product</Text>
-        <Dropdown
-          style={styles.dropdown}
-          data={products}
-          labelField="label"
-          valueField="value"
-          placeholder="Select product"
-          value={selectedProduct}
-          onChange={(item) => {
-            setSelectedProduct(item.value);
-            setSearchType(null);
-            setSearchValue('');
-            setUserData(null);
-          }}
-        />
-      </View>
-
-      <View style={styles.field}>
-        <Text style={styles.label}>Search By</Text>
-        <Dropdown
-          style={styles.dropdown}
-          data={searchOptions}
-          labelField="label"
-          valueField="value"
-          placeholder="Select search type"
-          value={searchType}
-          onChange={(item) => {
-            setSearchType(item.value);
-            setSearchValue('');
-            setUserData(null);
-          }}
-        />
-      </View>
-
-      {searchType && (
-        <View style={styles.field}>
-          <Text style={styles.label}>
-            Enter {searchOptions.find((o) => o.value === searchType)?.label}
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder={`Enter ${searchOptions.find((o) => o.value === searchType)?.label}`}
-            value={searchValue}
-            onChangeText={setSearchValue}
-            keyboardType={searchType === 'mobileNumber' ? 'number-pad' : 'default'}
-            autoCapitalize={searchType === 'panNumber' ? 'characters' : 'none'}
-          />
-        </View>
-      )}
-
-      <Button label="Search" onPress={handleSearch} />
-
-      <LoanDetailsTable userData={userData} />
-    </ScrollView>
-
-    {/* Overlay loader */}
-    <Loader visible={isLoading} />
-
-    {/* Selection Modal for multiple results */}
-    <Modal
-      visible={modalVisible}
-      animationType="slide"
-      transparent
-      onRequestClose={() => setModalVisible(false)}
+  const renderResultRow = ({ item }) => (
+    <TouchableOpacity
+      style={resultStyles.row}
+      onPress={() => selectResult(item)}
     >
-      <TouchableOpacity
-        style={resultStyles.backdrop}
-        activeOpacity={1}
-        onPress={() => setModalVisible(false)}
-      >
-        <View style={resultStyles.modalContainer}>
-          <Text style={resultStyles.modalTitle}>Multiple matches found — select one</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={resultStyles.name}>
+          {item.customerName || item.name || 'Unknown name'}
+        </Text>
+        <Text style={resultStyles.sub}>
+          {item.mobileNumber || item.mobile || 'No mobile'} •{' '}
+          {item.lan ? `LAN: ${item.lan}` : ''}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 
-          <FlatList
-            data={searchResults}
-            keyExtractor={(item, idx) => (item.lan || item.partnerLoanId || item.mobileNumber || String(idx))}
-            renderItem={renderResultRow}
-            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#eee' }} />}
-            style={{ maxHeight: 340 }}
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Loan Details Search</Text>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Select Product</Text>
+          <Dropdown
+            style={styles.dropdown}
+            data={products}
+            labelField="label"
+            valueField="value"
+            placeholder="Select product"
+            value={selectedProduct}
+            onChange={item => {
+              setSelectedProduct(item.value);
+              setSearchType(null);
+              setSearchValue('');
+              setUserData(null);
+            }}
           />
-
-          <TouchableOpacity style={resultStyles.cancelBtn} onPress={() => setModalVisible(false)}>
-            <Text style={resultStyles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
-    </Modal>
-  </View>
-);
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Search By</Text>
+          <Dropdown
+            style={styles.dropdown}
+            data={searchOptions}
+            labelField="label"
+            valueField="value"
+            placeholder="Select search type"
+            value={searchType}
+            onChange={item => {
+              setSearchType(item.value);
+              setSearchValue('');
+              setUserData(null);
+            }}
+          />
+        </View>
+
+        {searchType && (
+          <View style={styles.field}>
+            <Text style={styles.label}>
+              Enter {searchOptions.find(o => o.value === searchType)?.label}
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder={`Enter ${
+                searchOptions.find(o => o.value === searchType)?.label
+              }`}
+              value={searchValue}
+              onChangeText={setSearchValue}
+              keyboardType={
+                searchType === 'mobileNumber' ? 'number-pad' : 'default'
+              }
+              autoCapitalize={
+                searchType === 'panNumber' ? 'characters' : 'none'
+              }
+            />
+          </View>
+        )}
+
+        <Button label="Search" onPress={handleSearch} />
+
+        <LoanDetailsTable
+          userData={userData}
+          onPayPress={() => handlePayPress(userData)}
+          isMalhotra={selectedProduct === 'malhotra'}
+        />
+      </ScrollView>
+
+      {/* Overlay loader */}
+      <Loader visible={isLoading} />
+
+      {/* Selection Modal for multiple results */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={resultStyles.backdrop}
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+        >
+          <View style={resultStyles.modalContainer}>
+            <Text style={resultStyles.modalTitle}>
+              Multiple matches found — select one
+            </Text>
+
+            <FlatList
+              data={searchResults}
+              keyExtractor={(item, idx) =>
+                item.lan ||
+                item.partnerLoanId ||
+                item.mobileNumber ||
+                String(idx)
+              }
+              renderItem={renderResultRow}
+              ItemSeparatorComponent={() => (
+                <View style={{ height: 1, backgroundColor: '#eee' }} />
+              )}
+              style={{ maxHeight: 340 }}
+            />
+
+            <TouchableOpacity
+              style={resultStyles.cancelBtn}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={resultStyles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
 }
 
 const tableStyles = StyleSheet.create({
@@ -475,6 +537,18 @@ const tableStyles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '400',
+  },
+  payButton: {
+    backgroundColor: '#4caf50',
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  payButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

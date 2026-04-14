@@ -28,18 +28,18 @@
 //   );
 // }
 
-
-import React from "react";
-import { createDrawerNavigator } from "@react-navigation/drawer";
-import LoanDetailsScreen from "../screens/LoanDetailsScreen";
-import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen"
+import React from 'react';
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import LoanDetailsScreen from '../screens/LoanDetailsScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import PendingCashPaymentsScreen from '../screens/PendingCashPaymentsScreen';
+import PaymentScreen from '../screens/PaymentScreen';
 // import PaymentImage2Screen from '../screens/PaymentImage2Screen';
-import CashReceiptScreen from "../screens/ReceiptScreen";
-import HomeScreen from "../screens/HomeScreen";
-import CustomDrawer from "./CustomDrawer";
-import RepossessionScreen from "../screens/RepossessionScreen";
-import CustomerVisitScreen from "../screens/MyVisits";
+import CashReceiptScreen from '../screens/ReceiptScreen';
+import HomeScreen from '../screens/HomeScreen';
+import CustomDrawer from './CustomDrawer';
+import RepossessionScreen from '../screens/RepossessionScreen';
+import CustomerVisitScreen from '../screens/MyVisits';
 const Drawer = createDrawerNavigator();
 
 export default function DrawerNavigator({ onLogout }) {
@@ -47,29 +47,53 @@ export default function DrawerNavigator({ onLogout }) {
     <Drawer.Navigator
       initialRouteName="Home"
       // drawerContent={(props) => <CustomDrawer {...props} />}
-      screenOptions={{ headerTitleAlign: "center", drawerType: "front" }}
-      drawerContent={(props) => (
-        <CustomDrawer {...props} onLogout={onLogout} />
-      )}
+      screenOptions={{ headerTitleAlign: 'center', drawerType: 'front' }}
+      drawerContent={props => <CustomDrawer {...props} onLogout={onLogout} />}
     >
       <Drawer.Screen name="Home">
-        {(props) => <HomeScreen {...props} onLogout={onLogout} />}
+        {props => <HomeScreen {...props} onLogout={onLogout} />}
       </Drawer.Screen>
-      <Drawer.Screen name="CashReceipt" component={CashReceiptScreen} options={{ title: "Receipt" }} />
-      <Drawer.Screen name="LoanDetails" component={LoanDetailsScreen} options={{ title: "Loan Search" }} />
-      <Drawer.Screen name="Pending Cash Receipt" component={PendingCashPaymentsScreen} />
-      <Drawer.Screen name="Repossession" component={RepossessionScreen} options={{ title: 'Vehicle Repossession' }} />
-      <Drawer.Screen name="My Visits" component={CustomerVisitScreen} options={{ title: 'My Visits' }} />
+      <Drawer.Screen
+        name="CashReceipt"
+        component={CashReceiptScreen}
+        options={{ title: 'Receipt' }}
+      />
+      <Drawer.Screen
+        name="LoanDetails"
+        component={LoanDetailsScreen}
+        options={{ title: 'Loan Search' }}
+      />
+      <Drawer.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{
+          title: 'Make Payment',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="Pending Cash Receipt"
+        component={PendingCashPaymentsScreen}
+      />
+      <Drawer.Screen
+        name="Repossession"
+        component={RepossessionScreen}
+        options={{ title: 'Vehicle Repossession' }}
+      />
+      <Drawer.Screen
+        name="My Visits"
+        component={CustomerVisitScreen}
+        options={{ title: 'My Visits' }}
+      />
 
       <Drawer.Screen
         name="PrivacyPolicy"
         component={PrivacyPolicyScreen}
         options={{
-          title: "Privacy Policy",
-          drawerItemStyle: { display: 'none' }
+          title: 'Privacy Policy',
+          drawerItemStyle: { display: 'none' },
         }}
       />
-
     </Drawer.Navigator>
   );
 }
