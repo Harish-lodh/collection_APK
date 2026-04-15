@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
+  ToastAndroid,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Loader from '../components/loader';
@@ -170,13 +171,24 @@ export default function PaymentScreen({ navigation, route }) {
     shouldCancelPollingRef.current = false;
     setIsSubmitting(true);
     setPaymentState('PROCESSING');
-    setIsModalVisible(true);
 
     const product = loanData?.product;
     const emiId = emi.id;
 
     try {
       const initiateResult = await initiatePayment(emiId, product);
+      console.log(initiateResult);
+      if (initiateResult.error) {
+        Alert.alert('Error', initiateResult.error);
+
+        setPaymentState('FAILED');
+        setPayingEmiId(null);
+        isProcessing.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+
+      setIsModalVisible(true);
 
       if (!initiateResult.success) {
         setPaymentState('FAILED');
@@ -192,7 +204,7 @@ export default function PaymentScreen({ navigation, route }) {
       const paymentUrl = initiateResult.paymentUrl;
 
       if (merchantTxn) {
-        const maxAttempts = 30;
+        const maxAttempts = 60;
         let attempts = 0;
         let paymentVerified = false;
 
@@ -201,7 +213,7 @@ export default function PaymentScreen({ navigation, route }) {
             setPaymentState('IDLE');
             break;
           }
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 5000));
 
           const verifyResult = await verifyPayment(merchantTxn);
 

@@ -71,7 +71,7 @@ export async function initiatePayment(emiId, product) {
     console.log('Payment API error:', error.message);
     return {
       success: false,
-      error:
+      error:error.response?.data?.error ||
         error.response?.data?.message || 'Payment failed. Please try again.',
     };
   }
