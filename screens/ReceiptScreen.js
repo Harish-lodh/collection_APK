@@ -275,14 +275,31 @@ export default function CashReceiptScreen() {
 useEffect(() => {
   const loadProducts = async () => {
     try {
-      const stored = await AsyncStorage.getItem('permissions'); // direct key
-      const permissions = stored ? JSON.parse(stored) : ['Embifi']; // parse directly
-      setProducts(permissions.map(p => ({ label: p, value: p })));
+      const stored = await AsyncStorage.getItem('permissions');
+      const permissions = stored ? JSON.parse(stored) : ['Embifi'];
+
+      const formattedProducts = permissions.map(p => ({
+        label: p,
+        value: p,
+      }));
+
+      setProducts(formattedProducts);
+
+      // ✅ Select first product by default
+      if (formattedProducts.length > 0) {
+        setSelectedProduct(formattedProducts[0].value);
+      }
+
     } catch (err) {
       console.error('Error loading products:', err);
-      setProducts([{ label: 'Embifi', value: 'embifi' }]); // safety fallback
+
+      const fallback = [{ label: 'Embifi', value: 'embifi' }];
+      setProducts(fallback);
+
+     setSelectedProduct(fallback[0].value);
     }
   };
+
   loadProducts();
 }, []);
 

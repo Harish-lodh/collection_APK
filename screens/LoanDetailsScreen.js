@@ -168,44 +168,60 @@ export default function LoanDetailsScreen() {
 
   useEffect(() => {
     loadProducts();
+
+     if (searchOptions.length > 0) {
+    setSearchType(searchOptions[0].value);
+  }
   }, []);
 
-  const loadProducts = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem('user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        if (user && Array.isArray(user.permissions)) {
-          // Map permissions to dropdown items, assuming permissions is array of strings like ['embifi', 'malhotra']
-          const productItems = user.permissions.map(perm => ({
-            label: perm.charAt(0).toUpperCase() + perm.slice(1),
-            value: perm,
-          }));
-          setProducts(productItems);
-        } else {
-          // Fallback if no permissions
-          setProducts([]);
+const loadProducts = async () => {
+  try {
+    const storedUser = await AsyncStorage.getItem('user');
+
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+
+      if (user && Array.isArray(user.permissions)) {
+        const productItems = user.permissions.map(perm => ({
+          label: perm.charAt(0).toUpperCase() + perm.slice(1),
+          value: perm,
+        }));
+
+        setProducts(productItems);
+
+        // ✅ Select first product by default
+        if (productItems.length > 0) {
+          setSelectedProduct(productItems[0].value);
         }
+
       } else {
-        // Fallback to default products if not stored
-        const defaultProducts = [
-          { label: 'Embifi', value: 'embifi' },
-          // Uncomment if Malhotra should be default
-          // { label: 'Malhotra', value: 'malhotra' },
-        ];
-        setProducts(defaultProducts);
-        // Optionally save defaults, but since it's user-based, maybe not
+        setProducts([]);
       }
-    } catch (error) {
-      console.error('Error loading products:', error);
-      // Fallback to defaults on error
+
+    } else {
       const defaultProducts = [
         { label: 'Embifi', value: 'embifi' },
-        // { label: 'Malhotra', value: 'malhotra' },
       ];
+
       setProducts(defaultProducts);
+
+      // ✅ Select first default product
+      setSelectedProduct(defaultProducts[0].value);
     }
-  };
+
+  } catch (error) {
+    console.error('Error loading products:', error);
+
+    const defaultProducts = [
+      { label: 'Embifi', value: 'embifi' },
+    ];
+
+    setProducts(defaultProducts);
+
+    // ✅ Select first default product
+    setSelectedProduct(defaultProducts[0].value);
+  }
+};
 
   //   const handleSearch = async () => {
   //     if (!selectedProduct || !searchType || !searchValue.trim()) {
