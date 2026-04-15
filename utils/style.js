@@ -1,4 +1,3 @@
-
 import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 12 },
@@ -40,7 +39,11 @@ const styles = StyleSheet.create({
   },
   loaderContainer: { marginTop: 16, alignItems: 'center' },
 
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   req: { color: '#e5484d' },
   hint: { fontSize: 12, color: '#888' },
   hintOk: { fontSize: 12, color: '#0a7' },
@@ -91,7 +94,213 @@ const styles = StyleSheet.create({
   closeText: { color: '#fff', fontSize: 16, lineHeight: 16, fontWeight: '700' },
   previewCaption: { marginTop: 6, fontSize: 12, color: '#666' },
 });
-
-
+const paymentStyles = StyleSheet.create({
+  customerInfo: {
+    backgroundColor: '#e3f2fd',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  customerName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1565c0',
+  },
+  lanText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  fieldValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  statusCard: {
+    backgroundColor: '#c8e6c9',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+  },
+  paidDate: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  errorCard: {
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#c62828',
+    fontSize: 14,
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  retryButton: {
+    backgroundColor: '#ff9800',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  auditInfo: {
+    marginTop: 20,
+    padding: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  auditText: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 2,
+  },
+  emiCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  emiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  emiInfo: {
+    flex: 1,
+  },
+  emiNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  emiDueDate: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  emiAmount: {
+    fontSize: 12,
+    color: '#1565c0',
+    marginTop: 2,
+  },
+  emiStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  emiStatus: {
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: '#e0e0e0',
+    color: '#666',
+  },
+  emiStatusPaid: {
+    backgroundColor: '#c8e6c9',
+    color: '#2e7d32',
+  },
+  emiStatusDue: {
+    backgroundColor: '#ffebee',
+    color: '#c62828',
+  },
+  emiStatusPartPaid: {
+    backgroundColor: '#fff3e0',
+    color: '#e65100',
+  },
+  emiAmountPaid: {
+    color: '#2e7d32',
+  },
+  emiPayButton: {
+    backgroundColor: '#4caf50',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  emiPayButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  paymentForm: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+    padding: 16,
+  },
+  payButton: {
+    backgroundColor: '#4caf50',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  payButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+});
 
 export default styles;
+export { paymentStyles };

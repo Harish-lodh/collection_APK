@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import styles, { paymentStyles } from '../utils/style';
 import {
   View,
   Text,
@@ -10,7 +11,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Loader from '../components/loader';
-import PaymentModal from '../components/PaymentModal'; // Import your modal component
+import PaymentModal from '../components/PaymentModal';
 import apiClient from '../server/apiClient';
 import {
   getEmiSchedule,
@@ -19,7 +20,6 @@ import {
   PaymentStatus,
 } from '../services/paymentService';
 import { formatCurrency, formatDate } from '../utils/paymentHelpers';
-import styles from '../utils/style';
 
 export default function PaymentScreen({ navigation, route }) {
   console.log('PaymentScreen component rendered');
@@ -45,6 +45,7 @@ export default function PaymentScreen({ navigation, route }) {
   const sessionPaidRef = useRef(false);
   const currentLanRef = useRef(loanData?.lan || null);
   const storedUserRef = useRef(null);
+  const shouldCancelPollingRef = useRef(false);
 
   const isPaymentLocked =
     paymentState === 'SUCCESS' || isSubmitting || sessionPaidRef.current;
@@ -166,6 +167,7 @@ export default function PaymentScreen({ navigation, route }) {
     if (isProcessing.current) return;
 
     isProcessing.current = true;
+    shouldCancelPollingRef.current = false;
     setIsSubmitting(true);
     setPaymentState('PROCESSING');
     setIsModalVisible(true);
@@ -195,6 +197,10 @@ export default function PaymentScreen({ navigation, route }) {
         let paymentVerified = false;
 
         while (attempts < maxAttempts && !paymentVerified) {
+          if (shouldCancelPollingRef.current) {
+            setPaymentState('IDLE');
+            break;
+          }
           await new Promise(resolve => setTimeout(resolve, 2000));
 
           const verifyResult = await verifyPayment(merchantTxn);
@@ -263,6 +269,7 @@ export default function PaymentScreen({ navigation, route }) {
     }
 
     isProcessing.current = true;
+    shouldCancelPollingRef.current = false;
     setIsSubmitting(true);
     setPaymentState('PROCESSING'); // Show processing state
     setIsModalVisible(true);
@@ -292,6 +299,12 @@ export default function PaymentScreen({ navigation, route }) {
       setLastTransaction(transactionData);
 
       setPaymentState('PROCESSING');
+
+      if (shouldCancelPollingRef.current) {
+        isProcessing.current = false;
+        setIsSubmitting(false);
+        return;
+      }
 
       if (transactionData.status === PaymentStatus.COMPLETED) {
         const verifyResult = await verifyPayment(transactionData.transactionId);
@@ -367,6 +380,7 @@ export default function PaymentScreen({ navigation, route }) {
   }
   const closeModal = () => {
     const status = paymentState;
+    shouldCancelPollingRef.current = true;
     setIsModalVisible(false);
     setTransactionDetails(null);
     setPaymentState('IDLE');
@@ -470,211 +484,3 @@ export default function PaymentScreen({ navigation, route }) {
     </View>
   );
 }
-
-const paymentStyles = StyleSheet.create({
-  customerInfo: {
-    backgroundColor: '#e3f2fd',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  customerName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1565c0',
-  },
-  lanText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  fieldLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  fieldValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  statusCard: {
-    backgroundColor: '#c8e6c9',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2e7d32',
-  },
-  paidDate: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  errorCard: {
-    backgroundColor: '#ffebee',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#c62828',
-    fontSize: 14,
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  retryButton: {
-    backgroundColor: '#ff9800',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  auditInfo: {
-    marginTop: 20,
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  auditText: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 2,
-  },
-  emiCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 3,
-  },
-  emiRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  emiInfo: {
-    flex: 1,
-  },
-  emiNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  emiDueDate: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  emiAmount: {
-    fontSize: 12,
-    color: '#1565c0',
-    marginTop: 2,
-  },
-  emiStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  emiStatus: {
-    fontSize: 12,
-    fontWeight: '600',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: '#e0e0e0',
-    color: '#666',
-  },
-  emiStatusPaid: {
-    backgroundColor: '#c8e6c9',
-    color: '#2e7d32',
-  },
-  emiStatusDue: {
-    backgroundColor: '#ffebee',
-    color: '#c62828',
-  },
-  emiStatusPartPaid: {
-    backgroundColor: '#fff3e0',
-    color: '#e65100',
-  },
-  emiAmountPaid: {
-    color: '#2e7d32',
-  },
-  emiPayButton: {
-    backgroundColor: '#4caf50',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  emiPayButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  paymentForm: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 3,
-    padding: 16,
-  },
-  payButton: {
-    backgroundColor: '#4caf50',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  payButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-});
