@@ -40,6 +40,7 @@ import HomeScreen from '../screens/HomeScreen';
 import CustomDrawer from './CustomDrawer';
 import RepossessionScreen from '../screens/RepossessionScreen';
 import CustomerVisitScreen from '../screens/MyVisits';
+import ReceiptDownloadScreen from '../screens/ReceiptDownloadScreen';
 const Drawer = createDrawerNavigator();
 
 export default function DrawerNavigator({ onLogout }) {
@@ -84,6 +85,11 @@ export default function DrawerNavigator({ onLogout }) {
         name="My Visits"
         component={CustomerVisitScreen}
         options={{ title: 'My Visits' }}
+      />
+      <Drawer.Screen
+        name="ReceiptDownload"
+        component={ReceiptDownloadScreen}
+        options={{ title: 'Receipt Download' }}
       />
 
       <Drawer.Screen

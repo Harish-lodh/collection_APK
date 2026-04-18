@@ -62,6 +62,30 @@ export async function uploadPaymentImage2(paymentId, asset, product) {
   });
 }
 
+export async function searchPayments(query) {
+  try {
+    const token = await getAuthToken();
+    const params = {};
+    if (query) {
+      if (/^\d{10}$/.test(query)) {
+        params.contactNumber = query;
+      } else {
+        params.customerName = query;
+      }
+    }
+    const { data } = await axios.get(`${BACKEND_BASE_URL}/loanDetails/collection`, {
+      params,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log(data)
+    return { success: true, data: data?.data || [] };
+  } catch (error) {
+    console.log('searchPayments error:', error.message);
+    return { success: false, error: error.response?.data?.message || 'Failed to search payments' };
+  }
+}
+
+
 
 // src/utils/index.js
 

@@ -80,29 +80,37 @@ import PaymentImage2Screen from './screens/PaymentImage2Screen';
 import Loader from './components/loader';
 import { startTracking } from './components/bgTracking';
 
+import CustomerTabNavigator from './customer/navigation/CustomerTabNavigator';
+import CustomerPaymentScreen from './customer/screens/CustomerPaymentScreen';
+
 const Stack = createStackNavigator();
 
 const App = () => {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState(null);
 
-  // 🔹 Restore session on app start
   useEffect(() => {
     const restoreSession = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
+        const role = await AsyncStorage.getItem('role');
 
         if (token) {
           setIsLoggedIn(true);
+          setUserRole(role || 'RM');
 
-          // Start tracking when app opens
-          await startTracking(300000, 'AppOpen' as any);
+          if (role !== 'CUSTOMER') {
+            await startTracking(300000, 'AppOpen' as any);
+          }
         } else {
           setIsLoggedIn(false);
+          setUserRole(null);
         }
       } catch (err) {
         console.error('Session restore failed:', err);
         setIsLoggedIn(false);
+        setUserRole(null);
       } finally {
         setLoading(false);
       }
@@ -111,7 +119,29 @@ const App = () => {
     restoreSession();
   }, []);
 
-  // 🔹 Show loader while restoring session
+  const handleLogout = async () => {
+    try {
+      const role = await AsyncStorage.getItem('role');
+      if (role !== 'CUSTOMER') {
+        await startTracking(300000, 'Logout' as any);
+      }
+    } catch (err) {
+      console.error('Error during logout tracking:', err);
+    }
+    await AsyncStorage.clear();
+    setIsLoggedIn(false);
+    setUserRole(null);
+  };
+
+  const handleLoginSuccess = async role => {
+    setIsLoggedIn(true);
+    setUserRole(role || 'RM');
+
+    if (role !== 'CUSTOMER') {
+      await startTracking(300000, 'Login' as any);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -121,42 +151,60 @@ const App = () => {
     );
   }
 
+  const isCustomer = userRole === 'CUSTOMER';
+
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={isCustomer ? '#0a7' : '#fff'}
+      />
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           {isLoggedIn ? (
-            <Stack.Screen name="MainDrawer">
-              {(props: any) => (
-                <DrawerNavigator
-                  {...props}
-                  onLogout={() => {
-                    // 🔥 THIS is what redirects to Login
-                    setIsLoggedIn(false);
+            isCustomer ? (
+              <>
+                <Stack.Screen name="CustomerTabs">
+                  {(props: any) => (
+                    <CustomerTabNavigator {...props} onLogout={handleLogout} />
+                  )}
+                </Stack.Screen>
+                <Stack.Screen
+                  name="CustomerPayment"
+                  component={CustomerPaymentScreen}
+                  options={{
+                    headerShown: true,
+                    title: 'Pay EMI',
+                    headerStyle: { backgroundColor: '#0a7' },
+                    headerTintColor: '#fff',
                   }}
                 />
-              )}
-            </Stack.Screen>
+              </>
+            ) : (
+              <Stack.Screen name="MainDrawer">
+                {(props: any) => (
+                  <DrawerNavigator {...props} onLogout={handleLogout} />
+                )}
+              </Stack.Screen>
+            )
           ) : (
             <Stack.Screen name="Login">
               {(props: any) => (
                 <LoginScreen
                   {...props}
-                  onLoginSuccess={async () => {
-                    setIsLoggedIn(true);
-                    await startTracking(300000, 'Login' as any);
-                  }}
+                  onLoginSuccess={role => handleLoginSuccess(role)}
                 />
               )}
             </Stack.Screen>
           )}
 
-          <Stack.Screen
-            name="PaymentImage2"
-            component={PaymentImage2Screen}
-            options={{ headerShown: true, title: 'Pending receipt' }}
-          />
+          {!isCustomer && (
+            <Stack.Screen
+              name="PaymentImage2"
+              component={PaymentImage2Screen}
+              options={{ headerShown: true, title: 'Pending receipt' }}
+            />
+          )}
         </Stack.Navigator>
       </NavigationContainer>
     </>

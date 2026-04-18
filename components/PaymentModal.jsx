@@ -13,7 +13,8 @@ const PaymentModal = ({
         <View style={styles.loaderContainer}>
           <Text style={styles.processingText}>Processing Payment...</Text>
           <Text style={styles.subText}>
-            Please wait while we verify your payment
+            We have sent an SMS to your registered mobile number with the
+            payment details.{' '}
           </Text>
         </View>
       );

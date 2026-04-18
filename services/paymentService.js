@@ -79,7 +79,7 @@ export async function initiatePayment(emiId, product) {
 
 export async function verifyPayment(merchantTxn) {
   try {
-    console.log("merchantTxn",merchantTxn)
+    console.log("merchantTxn-->",merchantTxn)
     const response = await apiClient.get(
       `payments/easebuzz/payment-status/${merchantTxn}`,
     );

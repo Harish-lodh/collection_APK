@@ -14,8 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Loader from '../components/loader';
 import PaymentModal from '../components/PaymentModal';
 import apiClient from '../server/apiClient';
+import EmiSchedule from '../components/EmiSchedule';
 import {
-  getEmiSchedule,
   initiatePayment,
   verifyPayment,
   PaymentStatus,
@@ -35,9 +35,6 @@ export default function PaymentScreen({ navigation, route }) {
   const [errors, setErrors] = useState({});
   const [paymentState, setPaymentState] = useState('IDLE');
   const [lastTransaction, setLastTransaction] = useState(null);
-  const [emiList, setEmiList] = useState([]);
-  const [selectedEmi, setSelectedEmi] = useState(null);
-  const [payingEmiId, setPayingEmiId] = useState(null);
   const [collectedBy, setCollectedBy] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState(null);
@@ -94,174 +91,10 @@ export default function PaymentScreen({ navigation, route }) {
 
     currentLanRef.current = loanData.lan;
 
-    setIsLoading(true);
-    try {
-      console.log('Calling getEmiSchedule for LAN:', loanData.lan);
-      const result = await getEmiSchedule(loanData.lan, loanData?.product);
-      console.log('EMI schedule API result:', result);
-      if (result.success && result.data && result.data.length > 0) {
-        console.log('EMI data received:', result.data);
-        const mappedEmis = result.data.map((emi, index) => ({
-          ...emi,
-          emiNumber: emi.emiNumber || index + 1,
-          amount: emi.amount || emi.emiAmount || 0,
-          emiAmount: emi.amount || emi.emiAmount || 0,
-        }));
-        console.log('Mapped EMIs:', mappedEmis);
-        setEmiList(mappedEmis);
-      } else {
-        console.log('No EMI data or error:', result.error);
-        if (result.error) {
-          Alert.alert('Error', result.error);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading EMI list:', error);
-      Alert.alert('Error', 'Failed to load EMI schedule');
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(false); // EMI load handled by component
   };
 
-  const handlePaySingleEmi = async emi => {
-    if (!canCollect || payingEmiId) return;
 
-    const isPaidStatus = emi.status === 'Paid';
-    if (isPaidStatus) {
-      Alert.alert('Info', 'This EMI is already paid');
-      return;
-    }
-
-    const payAmount =
-      Number(emi.remainingEmi) ||
-      Number(emi.remainingAmount) ||
-      Number(emi.emiAmount);
-    if (!payAmount || payAmount <= 0) {
-      Alert.alert('Info', 'No amount due for this EMI');
-      return;
-    }
-
-    setPayingEmiId(emi.id);
-    setSelectedEmi(emi);
-    setAmount(String(payAmount));
-
-    Alert.alert(
-      'Pay EMI',
-      `Pay EMI #${emi.emiNumber || emi.id} of ${formatCurrency(payAmount)}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => setPayingEmiId(null),
-        },
-        {
-          text: 'Pay',
-          onPress: async () => {
-            await payEmi(emi, payAmount);
-          },
-        },
-      ],
-    );
-  };
-
-  const payEmi = async (emi, payAmount) => {
-    if (isProcessing.current) return;
-
-    isProcessing.current = true;
-    shouldCancelPollingRef.current = false;
-    setIsSubmitting(true);
-    setPaymentState('PROCESSING');
-
-    const product = loanData?.product;
-    const emiId = emi.id;
-
-    try {
-      const initiateResult = await initiatePayment(emiId, product);
-      console.log(initiateResult);
-      if (initiateResult.error) {
-        Alert.alert('Error', initiateResult.error);
-
-        setPaymentState('FAILED');
-        setPayingEmiId(null);
-        isProcessing.current = false;
-        setIsSubmitting(false);
-        return;
-      }
-
-      setIsModalVisible(true);
-
-      if (!initiateResult.success) {
-        setPaymentState('FAILED');
-        setTransactionDetails(null);
-        setErrors({ general: initiateResult.error || 'Payment failed' });
-        setPayingEmiId(null);
-        isProcessing.current = false;
-        setIsSubmitting(false);
-        return;
-      }
-
-      const merchantTxn = initiateResult.merchantTxn;
-      const paymentUrl = initiateResult.paymentUrl;
-
-      if (merchantTxn) {
-        const maxAttempts = 60;
-        let attempts = 0;
-        let paymentVerified = false;
-
-        while (attempts < maxAttempts && !paymentVerified) {
-          if (shouldCancelPollingRef.current) {
-            setPaymentState('IDLE');
-            break;
-          }
-          await new Promise(resolve => setTimeout(resolve, 5000));
-
-          const verifyResult = await verifyPayment(merchantTxn);
-
-          if (verifyResult.success && verifyResult.paymentDone) {
-            paymentVerified = true;
-
-            setPaymentState('SUCCESS');
-            setTransactionDetails({
-              transactionId: merchantTxn,
-              amount: payAmount,
-            });
-            const now = new Date().toISOString();
-            setEmiList(prev =>
-              prev.map(e =>
-                e.id === emi.id
-                  ? {
-                      ...e,
-                      status: 'Paid',
-                      paidDate: now,
-                      transactionId: merchantTxn,
-                    }
-                  : e,
-              ),
-            );
-            break;
-          }
-
-          attempts++;
-        }
-
-        if (!paymentVerified) {
-          setPaymentState('FAILED');
-          setTransactionDetails(null);
-          setErrors({ general: 'Payment verification timed out' });
-        }
-      }
-    } catch (error) {
-      console.error('EMI payment error:', error);
-      setPaymentState('FAILED');
-      setTransactionDetails(null);
-      setErrors({ general: 'Payment failed. Please try again.' });
-    } finally {
-      setPayingEmiId(null);
-      setSelectedEmi(null);
-      isProcessing.current = false;
-      setIsSubmitting(false);
-    }
-  };
 
   const handlePayment = async () => {
     if (isProcessing.current) return;
@@ -415,74 +248,17 @@ export default function PaymentScreen({ navigation, route }) {
           </View>
         )}
 
-        {emiList.length > 0 && (
-          <View style={paymentStyles.emiCard}>
-            <Text style={paymentStyles.cardTitle}>EMI Schedule</Text>
-            {emiList.map(emi => {
-              const isPaidStatus = emi.status === 'Paid';
-              const dueAmount =
-                emi.amount ||
-                emi.emiAmount ||
-                emi.remainingEmi ||
-                emi.remainingAmount ||
-                0;
-              const displayAmount = isPaidStatus ? dueAmount : dueAmount;
-
-              return (
-                <View key={emi.id} style={paymentStyles.emiRow}>
-                  <View style={paymentStyles.emiInfo}>
-                    <Text style={paymentStyles.emiNumber}>
-                      EMI #{emi.emiNumber || emi.id}
-                    </Text>
-                    <Text style={paymentStyles.emiDueDate}>
-                      Due: {formatDate(emi.dueDate)}
-                    </Text>
-                    {!isPaidStatus && (
-                      <Text style={paymentStyles.emiAmount}>
-                        Due: {formatCurrency(dueAmount)}
-                      </Text>
-                    )}
-                    {isPaidStatus && (
-                      <Text
-                        style={[
-                          paymentStyles.emiAmount,
-                          paymentStyles.emiAmountPaid,
-                        ]}
-                      >
-                        Paid: {formatCurrency(dueAmount)}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={paymentStyles.emiStatusContainer}>
-                    <Text
-                      style={[
-                        paymentStyles.emiStatus,
-                        isPaidStatus && paymentStyles.emiStatusPaid,
-                        (emi.status === 'Due' || emi.status === 'Late') &&
-                          paymentStyles.emiStatusDue,
-                        emi.status === 'Part Paid' &&
-                          paymentStyles.emiStatusPartPaid,
-                      ]}
-                    >
-                      {emi.status}
-                    </Text>
-                    {!isPaidStatus && canCollect && (
-                      <TouchableOpacity
-                        style={paymentStyles.emiPayButton}
-                        onPress={() => handlePaySingleEmi(emi)}
-                        disabled={payingEmiId === emi.id}
-                      >
-                        <Text style={paymentStyles.emiPayButtonText}>
-                          {payingEmiId === emi.id ? '...' : 'Pay'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
+        <EmiSchedule
+          lan={loanData?.lan}
+          product={loanData?.product}
+          isRM={true}
+          title="EMI Schedule"
+          styleOverrides={{
+            container: { flexGrow: 1 },
+            list: { paddingBottom: 100 }, // Space for payment form
+            card: [paymentStyles.emiRow || styles.emiCard], // Use RM styles if avail
+          }}
+        />
       </ScrollView>
 
       <Loader visible={isSubmitting} />
